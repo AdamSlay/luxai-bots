@@ -63,7 +63,7 @@ def find_new_direction(unit, unit_positions, game_state) -> int:
     return 0
 
 
-def closest_type_tile(tile_type: str, unit, player, opponent, game_state, obs, factory=False) -> np.ndarray:
+def closest_type_tile(tile_type: str, unit, player, opponent, game_state, obs, light=False) -> np.ndarray:
     all_units = game_state.units[player]
     unit_positions = [u.pos for u in all_units.values() if u.unit_id != unit.unit_id]
     unit_positions.extend([u.pos for u in game_state.units[opponent].values()])
@@ -73,6 +73,8 @@ def closest_type_tile(tile_type: str, unit, player, opponent, game_state, obs, f
     if tile_type != "rubble":
         tile_locations = np.argwhere(type_tiles == 1)
         tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+        if light is True:
+            unit_positions.extend([tile_locations[np.argmin(tile_distances)]])
         target_tile = tile_locations[np.argmin(tile_distances)]
     else:
         tile_locations = np.argwhere((game_state.board.rubble <= 40) & (game_state.board.rubble > 0))
