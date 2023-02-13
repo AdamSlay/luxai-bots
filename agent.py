@@ -15,6 +15,8 @@ class Agent():
         self.attack_bots = []
         self.ice_bots = []
         self.ore_bots = []
+        self.murder_bots = []
+        self.factory_ids = []
         self.player = player
         self.opp_player = "player_1" if self.player == "player_0" else "player_0"
         np.random.seed(0)
@@ -42,13 +44,13 @@ class Agent():
                 ore = obs["board"]["ore"]
                 ice_distances = [manhattan_dist_to_nth_closest(ice, i) for i in range(1, 5)]
                 ore_distances = [manhattan_dist_to_nth_closest(ore, i) for i in range(1, 5)]
-                ICE_WEIGHTS = np.array([1, 0.8, 0.4, 0.2])
+                ICE_WEIGHTS = np.array([1, 0.4, 0.2, 0])
                 weigthed_ice_dist = np.sum(np.array(ice_distances) * ICE_WEIGHTS[:, np.newaxis, np.newaxis], axis=0)
 
-                ORE_WEIGHTS = np.array([1, 0.4, 0.2, 0])
+                ORE_WEIGHTS = np.array([1, 0, 0, 0])
                 weigthed_ore_dist = np.sum(np.array(ore_distances) * ORE_WEIGHTS[:, np.newaxis, np.newaxis], axis=0)
 
-                ICE_PREFERENCE = 3  # if you want to make ore more important, change to 0.3 for example
+                ICE_PREFERENCE = 5  # if you want to make ore more important, change to 0.3 for example
 
                 low_rubble = (obs["board"]["rubble"] < 25)
 
@@ -111,6 +113,15 @@ class Agent():
         return False
 
     def mine_ice_heavy(self, resource, unit, closest_f, actions, game_state, obs) -> None:
+        target_tile = closest_type_tile(resource, unit, self.player, self.opp_player, game_state, obs, heavy=True)
+        if np.all(target_tile == unit.pos):
+            if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state):
+                digs = (unit.power - unit.action_queue_cost(game_state)) // (unit.dig_cost(game_state))
+                actions[unit.unit_id] = [unit.dig(n=digs)]
+        else:
+            self.move_toward(target_tile, unit, actions, game_state, heavy=True)
+
+    def mine_ice_light(self, resource, unit, actions, game_state, obs) -> None:
         target_tile = closest_type_tile(resource, unit, self.player, self.opp_player, game_state, obs)
         if np.all(target_tile == unit.pos):
             if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state):
@@ -119,27 +130,19 @@ class Agent():
         else:
             self.move_toward(target_tile, unit, actions, game_state)
 
-    def mine_ice_light(self, resource, unit, actions, game_state, obs) -> None:
-        target_tile = closest_type_tile(resource, unit, self.player, self.opp_player, game_state, obs, light=True)
-        if np.all(target_tile == unit.pos):
-            if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state):
-                digs = (unit.power - unit.action_queue_cost(game_state)) // (unit.dig_cost(game_state))
-                actions[unit.unit_id] = [unit.dig(n=digs)]
-        else:
-            self.move_toward(target_tile, unit, actions, game_state)
-
-    def move_toward(self, target_tile, unit, actions, game_state) -> None:
+    def move_toward(self, target_tile, unit, actions, game_state, heavy=False) -> None:
         direction = direction_to(unit.pos, target_tile)
         opp_factories = get_factory_tiles(game_state, self.opp_player)
         unit_positions = [u.pos for u in game_state.units[self.player].values() if u.unit_id != unit.unit_id]
+        # if heavy is False:
         unit_positions.extend([u.pos for u in game_state.units[self.opp_player].values()])
         unit_positions.extend(opp_factories)
         unit_positions.extend(self.new_positions)
         unit_positions = unit_positions
 
         next_pos = next_position(unit, direction)
-        for u in unit_positions:
-            if next_pos[0] == u[0] and next_pos[1] == u[1]:
+        for i, u in enumerate(unit_positions):
+            if (next_pos[0] == u[0] and next_pos[1] == u[1]):
                 new_direction = find_new_direction(unit, unit_positions, game_state)
                 new_new_pos = next_position(unit, new_direction)
                 self.new_positions.append(new_new_pos)
@@ -163,8 +166,15 @@ class Agent():
             self.move_toward(target_tile, unit, actions, game_state)
             return 1
 
-    def dig_rubble(self, unit, actions, game_state, obs):
-        target_tile = closest_type_tile("rubble", unit, self.player, self.opp_player, game_state, obs)
+    def dig_rubble(self, unit, actions, game_state, obs, heavy=False):
+        if game_state.board.rubble[unit.pos[0]][unit.pos[1]] > 0:
+                if unit.unit_id not in actions:
+                    actions[unit.unit_id] = [unit.dig(repeat=True)]
+                return
+        if unit.unit_type == "HEAVY":
+            target_tile = closest_type_tile("rubble", unit, self.player, self.opp_player, game_state, obs, heavy=True)
+        else:
+            target_tile = closest_type_tile("rubble", unit, self.player, self.opp_player, game_state, obs)
         if np.all(target_tile == unit.pos):
             if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state) + 20:
                 digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
@@ -176,11 +186,12 @@ class Agent():
         direction = direction_to(unit.pos, closest_f.pos)
         adjacent_to_factory = factory_adjacent(closest_f.pos, unit)
         if adjacent_to_factory:
-            print(f"Step {self.act_step}: {unit.unit_id} at {unit.pos} Delivering {amount} of {resource} to {closest_f.pos}",
-                  file=sys.stderr)
             actions[unit.unit_id] = [unit.transfer(direction, resource, amount, n=1)]
         else:
-            self.move_toward(closest_f.pos, unit, actions, game_state)
+            if unit.unit_type == "HEAVY":
+                self.move_toward(closest_f.pos, unit, actions, game_state, heavy=True)
+            else:
+                self.move_toward(closest_f.pos, unit, actions, game_state)
 
     def recharge(self, unit, closest_f, actions, game_state):
         adjacent_to_factory = factory_adjacent(closest_f.pos, unit)
@@ -214,28 +225,63 @@ class Agent():
 
         if unit.power < 130:
             unit.recharge(x=130)
+            return
         elif unit.power < 200:
-            self.recharge(unit, closest_f, actions, game_state)
+            if unit.home.unit_id in self.factory_ids:
+                self.recharge(unit, unit.home, actions, game_state)
+            else:
+                self.recharge(unit, closest_f, actions, game_state)
+            return
+
+
+        if unit.title == "murderer":
+            opp_lichen, my_lichen = [], []
+            for i in self.opp_strains:
+                opp_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
+            for i in self.strains:
+                my_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
+
+            if self.act_step > 920 and np.sum(opp_lichen) > 0:
+                self.attack_opp(unit, opp_lichen, actions, game_state)
+
+            elif np.sum(opp_lichen) > (np.sum(my_lichen) * 0.8):
+                self.attack_opp(unit, opp_lichen, actions, game_state)
+            else:
+                if unit.unit_id not in actions:
+                    self.mine_ice_heavy("ice", unit, closest_f, actions, game_state, obs)
+
 
         else:
             if unit.cargo.ice > 200 and closest_f.cargo.water < 100:
-                self.deliver_payload(unit, 0, unit.cargo.ice, closest_f, actions, game_state)
+                if unit.home.unit_id in self.factory_ids:
+                    self.deliver_payload(unit, 0, unit.cargo.ice, unit.home, actions, game_state)
+                else:
+                    self.deliver_payload(unit, 0, unit.cargo.ice, closest_f, actions, game_state)
 
             elif unit.cargo.ice > 900:
-                self.deliver_payload(unit, 0, unit.cargo.ice, closest_f, actions, game_state)
+                if unit.home.unit_id in self.factory_ids:
+                    self.deliver_payload(unit, 0, unit.cargo.ice, unit.home, actions, game_state)
+                else:
+                    self.deliver_payload(unit, 0, unit.cargo.ice, closest_f, actions, game_state)
 
             elif game_state.board.rubble[unit.pos[0]][unit.pos[1]] > 0:
                 actions[unit.unit_id] = [unit.dig(repeat=True, n=1)]
 
             elif unit.unit_id not in actions:
-                self.mine_ice_heavy("ice", unit, closest_f, actions, game_state, obs)
+                if unit.home.unit_id in self.factory_ids:
+                    self.mine_ice_heavy("ice", unit, unit.home, actions, game_state, obs)
+                else:
+                    self.mine_ice_heavy("ice", unit, closest_f, actions, game_state, obs)
 
     def light_actions(self, unit, closest_f, actions, game_state, obs):
         if unit.power < 7:
             return
 
         if unit.power < 30:
-            self.recharge(unit, closest_f, actions, game_state)
+            if unit.home.unit_id in self.factory_ids:
+                self.recharge(unit, unit.home, actions, game_state)
+            else:
+                self.recharge(unit, closest_f, actions, game_state)
             return
 
         opp_lichen, my_lichen = [], []
@@ -243,8 +289,17 @@ class Agent():
             opp_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
         for i in self.strains:
             my_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
+        # if self.act_step < 100:
+        #     if unit.unit_id not in actions:
+        #         self.dig_rubble(unit, actions, game_state, obs)
 
-        if np.sum(opp_lichen) > (np.sum(my_lichen) * 0.4) and unit.unit_id in self.attack_bots:
+        if self.act_step > 200 and np.sum(opp_lichen) > (np.sum(my_lichen) * 0.4) and unit.unit_id in self.attack_bots:
+            # if game_state.board.rubble[unit.pos[0]][unit.pos[1]] > 0:
+            #     actions[unit.unit_id] = [unit.dig(repeat=True, n=1)]
+            #     return
+            self.attack_opp(unit, opp_lichen, actions, game_state)
+            return
+        elif self.act_step > 920 and np.sum(opp_lichen) > 0:
             self.attack_opp(unit, opp_lichen, actions, game_state)
             return
 
@@ -253,8 +308,8 @@ class Agent():
                 self.deliver_payload(unit, 0, unit.cargo.ice, closest_f, actions, game_state)
                 return
 
-            elif closest_f.cargo.water < 200 and unit.unit_id in self.ice_bots:
-                self.mine_ice_heavy("ice", unit, closest_f, actions, game_state, obs)
+            elif 50 < closest_f.cargo.water < 1000 and unit.unit_id in self.ice_bots:
+                self.mine_ice_light("ice", unit, actions, game_state, obs)
                 return
 
             elif unit.cargo.ore > 90:
@@ -262,7 +317,7 @@ class Agent():
                 return
 
             elif closest_f.cargo.metal < 100 and unit.unit_id in self.ore_bots:
-                self.mine_ice_heavy("ore", unit, closest_f, actions, game_state, obs)
+                self.mine_ice_light("ore", unit, actions, game_state, obs)
                 return
 
             elif unit.unit_id not in actions:
@@ -289,33 +344,46 @@ class Agent():
             for u_id, factory in factories.items():
                 self.strains.append(factory.strain_id)
 
-        for unit_id, unit in units.items():
-            if unit.unit_type == "LIGHT":
-                if len(self.ice_bots) < (len(factories.items())):
-                    self.ice_bots.append(unit_id)
-                elif len(self.ore_bots) < (len(factories.items())):
-                    self.ore_bots.append(unit_id)
-                elif len(self.attack_bots) < ((len(units.items()) - len(self.ice_bots) - len(self.ore_bots)) // 2):
-                    self.attack_bots.append(unit_id)
-            else:
-                self.heavies.append(unit_id)
+        # for unit_id, unit in units.items():
+        #     if unit.unit_type == "LIGHT":
+        #         mining_bots_wanted = len(factories.items())
+        #         attack_bots_wanted = (len(units.items()) - len(self.ice_bots) - len(self.ore_bots)) // 2
+        #         if len(self.ice_bots) < mining_bots_wanted and unit.title is None:
+        #             self.ice_bots.append(unit_id)
+        #             unit.title = "ice_miner"
+        #         elif len(self.ore_bots) < mining_bots_wanted and unit.title is None:
+        #             self.ore_bots.append(unit_id)
+        #             unit.title = "ore_miner"
+        #         elif len(self.attack_bots) < attack_bots_wanted and unit.title is None:
+        #             self.attack_bots.append(unit_id)
+        #             unit.title = "attacker"
+        #     elif len(self.heavies) < len(factories.items()) and unit.title is None:
+        #         self.heavies.append(unit_id)
+        #         unit.title = "homer"
 
         # FACTORIES
         factory_tiles, factory_units = [], []
         for unit_id, factory in factories.items():
+            self.factory_ids.append(unit_id)
             if self.act_step == 2:
                 self.build_robot("heavy", factory, actions, unit_id, game_state)
-            elif self.act_step == 100 or self.act_step == 104 or self.act_step == 108 or self.act_step == 112 or self.act_step == 116:
+            # elif self.act_step == 4:
+            #     self.heavies.append(unit_id)
+            elif self.act_step == 10 or self.act_step == 14 or self.act_step == 18 or self.act_step == 22 or self.act_step == 26:
                 self.build_robot("light", factory, actions, unit_id, game_state)
-            elif self.act_step > 120 and len(units.items()) < (len(factories.items()) * 8) and self.act_step % 10 == 0:
-                if len(self.heavies) < (len(factories.items())) and factory.can_build_heavy(game_state):
-                   self.build_robot("heavy", factory, actions, unit_id, game_state)
-                elif factory.can_build_light(game_state):
+            elif self.act_step > 120 and self.act_step % 10 == 0:
+                heavies = [uid for uid, u in game_state.units[self.player].items() if u.unit_type == "HEAVY"]
+                if len(heavies) < (len(factories.items())):
+                    if factory.can_build_heavy(game_state):
+                        self.build_robot("heavy", factory, actions, unit_id, game_state)
+                elif factory.can_build_heavy(game_state):
+                    self.build_robot("heavy", factory, actions, unit_id, game_state)
+                else:
                     self.build_robot("light", factory, actions, unit_id, game_state)
 
 
-            # elif self.act_step > 800 and factory.cargo.water > 50:
-            elif factory.cargo.water > 300:
+            elif self.act_step > 800 and factory.cargo.water > 50:
+                # elif factory.cargo.water > 300:
                 actions[unit_id] = factory.water()
             factory_tiles += [factory.pos]
             factory_units += [factory]
@@ -323,6 +391,32 @@ class Agent():
         factory_tiles = np.array(factory_tiles)  # the locations of your factories
 
         # UNITS
+        for unit_id, unit in units.items():
+            factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
+            closest_f = factory_units[np.argmin(factory_distances)]
+            if unit.unit_type == "HEAVY" and unit.home is None:
+                unit.home = closest_f
+            if unit.unit_type == "LIGHT":
+                mining_bots_wanted = len(factories.items())
+                attack_bots_wanted = (len(units.items()) - len(self.ice_bots) - len(self.ore_bots)) // 2
+                if unit.home is None:
+                    unit.home = closest_f
+                if len(self.ice_bots) < mining_bots_wanted:
+                    self.ice_bots.append(unit_id)
+                    unit.title = "ice_miner"
+                elif len(self.ore_bots) < mining_bots_wanted:
+                    self.ore_bots.append(unit_id)
+                    unit.title = "ore_miner"
+                elif len(self.attack_bots) < attack_bots_wanted:
+                    self.attack_bots.append(unit_id)
+                    unit.title = "attacker"
+            elif len(self.heavies) < len(factories.items()) and unit.title is None:
+                self.heavies.append(unit_id)
+                unit.title = "homer"
+            elif unit.title is None:
+                self.murder_bots.append(unit_id)
+                unit.title = "murderer"
+
         for unit_id, unit in units.items():
             factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
             closest_f = factory_units[np.argmin(factory_distances)]

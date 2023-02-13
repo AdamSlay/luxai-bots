@@ -3,6 +3,8 @@ import sys
 from typing import List
 import numpy as np
 from dataclasses import dataclass
+
+import lux.factory
 from lux.cargo import UnitCargo
 from lux.config import EnvConfig
 
@@ -20,6 +22,8 @@ class Unit:
     env_cfg: EnvConfig
     unit_cfg: dict
     action_queue: List
+    title: str = None
+    home: lux.factory.Factory = None
 
     @property
     def agent_id(self):

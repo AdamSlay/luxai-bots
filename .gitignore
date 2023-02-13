@@ -1,2 +1,6 @@
 *.pyc
-__pycache__/
+*/__pycache__/
+*.idea
+*.DS_Store
+replay.html
+submission.tar.gz
