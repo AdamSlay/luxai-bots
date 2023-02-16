@@ -22,8 +22,6 @@ class Unit:
     env_cfg: EnvConfig
     unit_cfg: dict
     action_queue: List
-    title: str = None
-    home: lux.factory.Factory = None
 
     @property
     def agent_id(self):
