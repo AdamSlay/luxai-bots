@@ -55,9 +55,13 @@ def find_new_direction(unit, unit_positions, game_state) -> int:
     random.shuffle(r)
     for d in r:
         new_pos = next_position(unit, d)
+        in_unit_positions = False
         for pos in unit_positions:
-            if (new_pos[0] == pos[0] and new_pos[1] == pos[1]):
-                return 0
+            if new_pos[0] == pos[0] and new_pos[1] == pos[1]:
+                in_unit_positions = True
+                break
+        if in_unit_positions:
+            continue
         if 0 <= new_pos[0] < 48 and 0 <= new_pos[1] < 48:
             return d
     return 0
@@ -84,20 +88,20 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
             unit_positions.extend([tile_locations[np.argmin(tile_distances)]])
         target_tile = tile_locations[np.argmin(tile_distances)]
     else:
-        # if heavy is False:
-        tile_locations = np.argwhere(((game_state.board.rubble <= 40) & (game_state.board.rubble > 0)))
-        tile_distances = np.mean((tile_locations - unit_or_homef.pos) ** 2, 1)
-        if 30 < np.min(tile_distances) < 50:
-            tile_locations = np.argwhere((game_state.board.rubble <= 60) & (game_state.board.rubble > 0))
-            tile_distances = np.mean((tile_locations - unit_or_homef.pos) ** 2, 1)
-        elif np.min(tile_distances) >= 50:
+        if heavy is True:
             tile_locations = np.argwhere(game_state.board.rubble > 0)
             tile_distances = np.mean((tile_locations - unit_or_homef.pos) ** 2, 1)
-        target_tile = tile_locations[np.argmin(tile_distances)]
-        # else:
-        #     tile_locations = np.argwhere(game_state.board.rubble > 0)
-        #     tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
-        #     target_tile = tile_locations[np.argmin(tile_distances)]
+            target_tile = tile_locations[np.argmin(tile_distances)]
+        else:
+            tile_locations = np.argwhere(((game_state.board.rubble <= 40) & (game_state.board.rubble > 0)))
+            tile_distances = np.mean((tile_locations - unit_or_homef.pos) ** 2, 1)
+            if 20 < np.min(tile_distances) < 50:
+                tile_locations = np.argwhere((game_state.board.rubble <= 60) & (game_state.board.rubble > 0))
+                tile_distances = np.mean((tile_locations - unit_or_homef.pos) ** 2, 1)
+            elif np.min(tile_distances) >= 50:
+                tile_locations = np.argwhere(game_state.board.rubble > 0)
+                tile_distances = np.mean((tile_locations - unit_or_homef.pos) ** 2, 1)
+            target_tile = tile_locations[np.argmin(tile_distances)]
 
     occupied = True
     while occupied:
@@ -115,11 +119,16 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
 
 def closest_opp_lichen(lichen_tiles, unit, player, opponent, game_state):
     all_units = game_state.units[player]
-    opp_factories = get_factory_tiles(game_state)
+    opp_fact_tiles = [u.pos for u in game_state.factories[opponent].values()]
+    opp_factories = get_factory_tiles(opp_fact_tiles)
+    opp_heavies = [get_factory_tiles([u.pos]) for u in game_state.units[opponent].values() if u.unit_type == "HEAVY"]
     unit_positions = [u.pos for u in all_units.values() if u.unit_id != unit.unit_id]
     unit_positions.extend([u.pos for u in game_state.units[opponent].values()])
     unit_positions.extend(opp_factories)
+    for h in opp_heavies:
+        unit_positions.extend(h)
     tile_distances = np.mean((lichen_tiles - unit.pos) ** 2, 1)
+
     if len(tile_distances) < 1:
         print("No lichen tiles found", file=sys.stderr)
         return None
