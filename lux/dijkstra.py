@@ -1,6 +1,7 @@
 from queue import PriorityQueue
 from typing import List, Tuple
 
+
 def dijkstras_path(unit_type, rubble_map, start, finish, unit_positions):
     start = tuple(start)
     finish = tuple(finish)
@@ -34,16 +35,17 @@ def dijkstras_path(unit_type, rubble_map, start, finish, unit_positions):
             prev[neighbor] = node
     return []
 
+
 def get_neighbors(pos: Tuple[int, int], rubble_map: List[List[int]]) -> List[Tuple[int, int]]:
     n_rows, n_cols = len(rubble_map), len(rubble_map[0])
     row, col = pos
     neighbors = []
     if row > 0:
-        neighbors.append((row-1, col))
-    if row < n_rows-1:
-        neighbors.append((row+1, col))
+        neighbors.append((row - 1, col))
+    if row < n_rows - 1:
+        neighbors.append((row + 1, col))
     if col > 0:
-        neighbors.append((row, col-1))
-    if col < n_cols-1:
-        neighbors.append((row, col+1))
+        neighbors.append((row, col - 1))
+    if col < n_cols - 1:
+        neighbors.append((row, col + 1))
     return neighbors
