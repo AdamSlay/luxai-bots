@@ -1,7 +1,6 @@
 from lib.actions import attack_opp, dig_rubble, deliver_payload, power_recharge, evade
 from lib.inventory import Inventory
-from lib.pathing import move_toward
-from lib.queue import Queue
+from lib.queue_builder import Queue
 from lib.setup_factories import setup
 from lux.kit import obs_to_game_state, EnvConfig
 from lib.utils import *  # it's ok, these are just helper functions
@@ -30,11 +29,20 @@ class Agent:
         return spawn_queue
 
     # ------------------- Agent Behavior -------------------
+    def update_action_queue(self):
+        new_acts = dict()
+        for uid, acts in self.prev_actions.items():
+            if isinstance(acts, list):
+                new_acts[uid] = acts[1:]
+            elif isinstance(acts, int):
+                continue
+        self.prev_actions = new_acts
+
     def update_unit_positions(self, units):
         for uid, act in self.prev_actions.items():
             if isinstance(act, list) and len(act) > 0:
                 unit = units.get(uid)
-                if act[0][0] == 0:# it's a move command
+                if act[0][0] == 0:  # it's a move command
                     if unit is not None:
                         new_pos = next_position(unit, act[0][1])
                         for pos in self.new_positions:
@@ -46,7 +54,6 @@ class Agent:
                 else:
                     if unit is not None:
                         self.new_positions.append(unit.pos)
-
 
     def update_actions(self, unit, queue):
         if isinstance(queue, list) and len(queue) > 0:
@@ -92,7 +99,8 @@ class Agent:
                 return
 
         if home_f.cargo.water < 100 < unit.cargo.ice:  # didn't know you could do this chained comparison
-            queue = deliver_payload(unit, 0, unit.cargo.ice, self.player, self.opp_player, self.new_positions, home_f, game_state)
+            queue = deliver_payload(unit, 0, unit.cargo.ice, self.player, self.opp_player, self.new_positions, home_f,
+                                    game_state)
             self.update_actions(unit, queue)
             return
 
@@ -109,14 +117,13 @@ class Agent:
             return
 
         elif len(self.prev_actions[unit.unit_id]) == 0:
-            factory_tiles = get_factory_tiles([home_f.pos])
-            closest_factory_tile = closest_factory(factory_tiles, factory_tiles, unit, game_state)
-            if factory_adjacent(closest_factory_tile, unit):
+            if factory_adjacent(home_f.pos, unit):
                 queue = [unit.transfer(direction_to(unit.pos, home_f.pos), 0, unit.cargo.ice, n=1)]
                 self.update_actions(unit, queue)
                 return
             else:
-                queue = deliver_payload(unit, 0, unit.cargo.ice, self.player, self.opp_player, self.new_positions, home_f,
+                queue = deliver_payload(unit, 0, unit.cargo.ice, self.player, self.opp_player, self.new_positions,
+                                        home_f,
                                         game_state)
                 self.update_actions(unit, queue)
                 return
@@ -154,18 +161,21 @@ class Agent:
                 return
 
         if unit.cargo.ore > 0 and title != "miner":
-            queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions, home_f, game_state)
+            queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions, home_f,
+                                    game_state)
             self.update_actions(unit, queue)
             return
 
         if title == "miner" and game_state.real_env_steps < 900:
             home_unit_inv = len(self.inventory.factory_units[home_f.unit_id])
             if unit.cargo.ore >= 25 and home_unit_inv < 4:
-                queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions, home_f, game_state)
+                queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions,
+                                        home_f, game_state)
                 self.update_actions(unit, queue)
                 return
             if unit.cargo.ore > 98:
-                queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions, home_f, game_state)
+                queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions,
+                                        home_f, game_state)
                 self.update_actions(unit, queue)
                 return
 
@@ -227,20 +237,18 @@ class Agent:
 
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         # SETUP
-        self.act_step += 1
         game_state = obs_to_game_state(step, self.env_cfg, obs)
         factories = game_state.factories[self.player]
         units = game_state.units[self.player]
-        self.inventory.factory_types = dict()
-
-        factory_tiles = np.array([factory.pos for factory_id, factory in factories.items()])
-        factory_units = [factory for factory_id, factory in factories.items()]
-
         opp_factories = game_state.factories[self.opp_player]
         opp_factory_centers = np.array([factory.pos for factory_id, factory in opp_factories.items()])
         opp_factory_tiles = get_factory_tiles(opp_factory_centers)
-        self.new_positions = [list(f.pos) for fid, f in factories.items()]
-        self.new_positions.extend(opp_factory_tiles)
+
+        self.actions = dict()
+        self.inventory.factory_types = dict()
+        self.update_action_queue()
+        self.new_positions = opp_factory_tiles
+        self.update_unit_positions(units)
 
         # STRAINS
         if game_state.real_env_steps == 1:
@@ -248,17 +256,6 @@ class Agent:
                 self.opp_strains.append(factory.strain_id)
             for u_id, factory in factories.items():
                 self.strains.append(factory.strain_id)
-
-        # UPDATE ACTION QUEUE
-        new_acts = dict()
-        for uid, acts in self.prev_actions.items():
-            if isinstance(acts, list):
-                new_acts[uid] = acts[1:]
-            elif isinstance(acts, int):
-                continue
-        self.prev_actions = new_acts
-        self.update_unit_positions(units)
-        self.actions = dict()
 
         # UNITS
         for unit_id, unit in units.items():
@@ -268,8 +265,7 @@ class Agent:
             if unit.unit_id not in self.prev_actions.keys():
                 self.prev_actions[unit.unit_id] = []
 
-            factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
-            closest_f = factory_units[np.argmin(factory_distances)]
+            closest_f = get_closest_factory(factories, unit)
             if unit_id not in self.inventory.all_units:  # then it's new and needs to be added to inventory
                 self.inventory.factory_units[closest_f.unit_id].append(unit_id)
                 self.inventory.all_units.append(unit_id)
@@ -283,7 +279,8 @@ class Agent:
                 home_factory = closest_f
 
             # ATTACK EVASION
-            evading, evasion_queue = evade(unit, home_factory, self.player, self.opp_player, self.new_positions, game_state)
+            evading, evasion_queue = evade(unit, home_factory, self.player, self.opp_player, self.new_positions,
+                                           game_state)
             if evading:
                 self.update_actions(unit, evasion_queue)
                 continue

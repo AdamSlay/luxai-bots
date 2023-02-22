@@ -176,7 +176,9 @@ def factory_adjacent(factory_tile, unit) -> bool:
     return np.mean((factory_tile - unit.pos) ** 2) <= 1
 
 
-def closest_factory(factory_units, factory_tiles, unit, game_state) -> np.ndarray:
+def get_closest_factory(factories, unit):
+    factory_units = np.array([f for u, f in factories.items()])
+    factory_tiles = [f.pos for u, f in factories.items()]
     factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
     closest = factory_units[np.argmin(factory_distances)]
     return closest
