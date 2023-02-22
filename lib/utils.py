@@ -16,6 +16,13 @@ def my_turn_to_place_factory(place_first: bool, step: int):
     return False
 
 
+def distance_to(start, finish) -> int:
+    # dy / dx
+    y = finish[1] - start[1]
+    x = finish[0] - start[0]
+    return abs(x) + abs(y)
+
+
 # direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
 def direction_to(src, target):
     src = np.array(src)
