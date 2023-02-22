@@ -8,7 +8,6 @@ from lib.utils import *  # it's ok, these are just helper functions
 
 class Agent:
     def __init__(self, player: str, env_cfg: EnvConfig) -> None:
-        self.act_step = 0
         self.old_units = []
         self.inventory = Inventory([], dict(), dict(), dict())
         self.homers = []
@@ -233,12 +232,18 @@ class Agent:
         if len(self.actions[unit.unit_id]) == 0:
             rubble_here = game_state.board.rubble[unit.pos[0]][unit.pos[1]]
             if rubble_here > 0:
-                digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
-                if digs > 20:
-                    digs = 20
-                queue = [unit.dig(n=digs)]
-                self.update_actions(unit, queue)
-                return
+                diggable = True
+                for pos in self.new_positions:
+                    if unit.pos[0] == pos[0] and unit.pos[1] == pos[1]:
+                        diggable = False
+                        break
+                if diggable:
+                    digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
+                    if digs > 20:
+                        digs = 20
+                    queue = [unit.dig(n=digs)]
+                    self.update_actions(unit, queue)
+                    return
             queue = dig_rubble(unit, self.player, self.opp_player, self.new_positions, game_state, obs)
             self.update_actions(unit, queue)
             return
@@ -249,14 +254,17 @@ class Agent:
         factories = game_state.factories[self.player]
         units = game_state.units[self.player]
         opp_factories = game_state.factories[self.opp_player]
+        my_factory_centers = [f.pos for i, f in factories.items()]
         opp_factory_centers = np.array([factory.pos for factory_id, factory in opp_factories.items()])
         opp_factory_tiles = get_factory_tiles(opp_factory_centers)
 
         self.actions = dict()
         self.inventory.factory_types = dict()
         self.update_action_queue()
-        self.new_positions = opp_factory_tiles
+        self.new_positions = my_factory_centers
+        self.new_positions.extend(opp_factory_tiles)
         self.update_new_positions(units)
+
 
         # STRAINS
         if game_state.real_env_steps == 1:
@@ -332,7 +340,12 @@ class Agent:
                     self.inventory.factory_types[home_id].append("digger")
                     if unit_id not in self.inventory.factory_units[home_id]:
                         self.inventory.factory_units[home_id].append(unit_id)
-                self.light_actions(unit, title, home_factory, game_state, obs)
+
+                if self.prev_actions[unit_id]:
+                    self.update_new_positions(units)
+                else:
+                    self.light_actions(unit, title, home_factory, game_state, obs)
+
 
         # FACTORIES
         for unit_id, factory in factories.items():
@@ -353,18 +366,15 @@ class Agent:
                 number_of_helpers = self.inventory.factory_types[unit_id].count("helper")
                 number_of_diggers = self.inventory.factory_types[unit_id].count("digger")
                 number_of_miners = self.inventory.factory_types[unit_id].count("miner")
-                if number_of_helpers < 2 and self.act_step % 4 == 0:
-                    if factory.can_build_light(game_state):
-                        self.actions[unit_id] = factory.build_light()
-                        continue
-                elif number_of_miners < 1 and self.act_step % 4 == 0:
-                    if factory.can_build_light(game_state):
-                        self.actions[unit_id] = factory.build_light()
-                        continue
-                elif number_of_diggers < 3 and self.act_step % 4 == 0:
-                    if factory.can_build_light(game_state):
-                        self.actions[unit_id] = factory.build_light()
-                        continue
+                if number_of_miners < 1 and factory.can_build_light(game_state):
+                    self.actions[unit_id] = factory.build_light()
+                    continue
+                elif number_of_helpers < 2 and factory.can_build_light(game_state):
+                    self.actions[unit_id] = factory.build_light()
+                    continue
+                elif number_of_diggers < 3 and factory.can_build_light(game_state):
+                    self.actions[unit_id] = factory.build_light()
+                    continue
                 elif game_state.real_env_steps > 800 and factory.can_build_light(
                         game_state) and game_state.real_env_steps % 10 == 0:
                     self.actions[unit_id] = factory.build_light()

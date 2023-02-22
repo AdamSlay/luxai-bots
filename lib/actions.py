@@ -1,6 +1,6 @@
 import numpy as np
 
-from lib.utils import closest_opp_lichen, closest_type_tile, direction_to, distance_to, factory_adjacent, next_position
+from lib.utils import closest_opp_lichen, closest_type_tile, direction_to, distance_to, factory_adjacent
 from lib.pathing import move_toward
 
 
@@ -46,27 +46,29 @@ def deliver_payload(unit, resource: int, amount: int, player, opp_player, new_po
             return move_toward(closest_f.pos, unit, player, opp_player, new_positions, game_state)
 
 
-def power_recharge(unit, home_f, player, opp_player, new_positions, game_state, desired_power=None):
+def power_recharge(unit, home_f, player, opp_player, new_positions, game_state):
     adjacent_to_factory = factory_adjacent(home_f.pos, unit)
     if adjacent_to_factory:
-        if desired_power is not None:
-            if desired_power > unit.power:
-                desired_power = unit.power + 50
-            return [unit.pickup(4, desired_power, n=1)]
-        if unit.unit_type == "LIGHT":
-            pickup_amt = 150 - unit.power
-        else:
-            if home_f.power < 500:
-                pickup_amt = (home_f.power - 50)
-            elif home_f.power < 1000:
-                pickup_amt = 500 + ((home_f.power - 500) // 2)
-            elif home_f.power < 3000:
-                pickup_amt = 1000 + ((home_f.power - 1000) // 2)
+        can_pickup = True
+        for pos in new_positions:
+            if unit.pos[0] == pos[0] and unit.pos[1] == pos[1]:
+                can_pickup = False
+                break
+        if can_pickup:
+            if unit.unit_type == "LIGHT":
+                pickup_amt = 150 - unit.power
             else:
-                pickup_amt = 2000 + (home_f.power % 1000)
-        return [unit.pickup(4, pickup_amt, n=1)]
-    else:
-        return move_toward(home_f.pos, unit, player, opp_player, new_positions, game_state)
+                if home_f.power < 500:
+                    pickup_amt = (home_f.power - 50)
+                elif home_f.power < 1000:
+                    pickup_amt = 500 + ((home_f.power - 500) // 2)
+                elif home_f.power < 3000:
+                    pickup_amt = 1000 + ((home_f.power - 1000) // 2)
+                else:
+                    pickup_amt = 2000 + (home_f.power % 1000)
+            return [unit.pickup(4, pickup_amt, n=1)]
+
+    return move_toward(home_f.pos, unit, player, opp_player, new_positions, game_state)
 
 
 def retreat(unit, opp_unit, home_f, game_state):

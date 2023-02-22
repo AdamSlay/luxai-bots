@@ -21,8 +21,8 @@ class Queue:
             mining_tile = closest_type_tile(resource, home_f, self.agent.player, self.agent.opp_player, game_state, obs,
                                             heavy=True,
                                             this_is_the_unit=unit)
-            print(f"Step {game_state.real_env_steps}: {unit.unit_id} is going to mine {mining_tile}",
-                  file=sys.stderr)
+            # print(f"Step {game_state.real_env_steps}: {unit.unit_id} is going to mine {mining_tile}",
+            #       file=sys.stderr)
         tile_locations = get_factory_tiles([home_f.pos])
         tile_distances = np.mean((tile_locations - mining_tile) ** 2, 1)
         factory_tile = tile_locations[np.argmin(tile_distances)]
@@ -70,9 +70,9 @@ class Queue:
             if unit.pos[0] != mining_tile[0] or unit.pos[1] != mining_tile[1]:
                 path = []
                 path_positions = dijkstras_path(unit.unit_type, rubble_map, unit.pos, mining_tile, unit_positions)
-                print(
-                    f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path to the mining tile {path_positions}",
-                    file=sys.stderr)
+                # print(
+                #     f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path to the mining tile {path_positions}",
+                #     file=sys.stderr)
                 for i, pos in enumerate(path_positions):
                     if i + 1 < len(path_positions):
                         path.append(path_to(unit, path_positions[i], path_positions[i + 1]))
@@ -86,9 +86,9 @@ class Queue:
             path_back = []
             path_back_positions = dijkstras_path(unit.unit_type, rubble_map, mining_tile, factory_tile,
                                                  unit_positions)
-            print(
-                f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path back {path_back_positions}",
-                file=sys.stderr)
+            # print(
+            #     f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path back {path_back_positions}",
+            #     file=sys.stderr)
 
             for i, pos in enumerate(path_back_positions):
                 if i + 1 < len(path_back_positions):
