@@ -38,22 +38,30 @@ class Agent:
                 continue
         self.prev_actions = new_acts
 
-    def update_unit_positions(self, units):
+    def finalize_action_queue(self):
+        actions_to_submit = dict()
+        for uid, acts in self.actions.items():
+            if isinstance(acts, list):
+                if len(acts) > 0:  # only submit actions that are not empty
+                    actions_to_submit[uid] = acts
+            else:  # it's an int and therefore a factory action, so submit it
+                actions_to_submit[uid] = acts
+        return actions_to_submit
+
+    def update_new_positions(self, units):
         for uid, act in self.prev_actions.items():
-            if isinstance(act, list) and len(act) > 0:
+            if isinstance(act, list) and len(act) > 0 and uid in units.keys():
                 unit = units.get(uid)
                 if act[0][0] == 0:  # it's a move command
-                    if unit is not None:
-                        new_pos = next_position(unit, act[0][1])
-                        for pos in self.new_positions:
-                            if new_pos[0] == pos[0] and new_pos[1] == pos[1]:
-                                self.prev_actions[uid] = []
-                                break
-                        else:
-                            self.new_positions.append(new_pos)
+                    new_pos = next_position(unit, act[0][1])
                 else:
-                    if unit is not None:
-                        self.new_positions.append(unit.pos)
+                    new_pos = unit.pos
+                for pos in self.new_positions:
+                    if new_pos[0] == pos[0] and new_pos[1] == pos[1]:
+                        self.prev_actions[uid] = []
+                        break
+                else:
+                    self.new_positions.append(new_pos)
 
     def update_actions(self, unit, queue):
         if isinstance(queue, list) and len(queue) > 0:
@@ -248,7 +256,7 @@ class Agent:
         self.inventory.factory_types = dict()
         self.update_action_queue()
         self.new_positions = opp_factory_tiles
-        self.update_unit_positions(units)
+        self.update_new_positions(units)
 
         # STRAINS
         if game_state.real_env_steps == 1:
@@ -362,15 +370,9 @@ class Agent:
                     self.actions[unit_id] = factory.build_light()
                     continue
 
-            if factory.cargo.water > 50 and self.act_step > 780:
+            if factory.cargo.water > 50 and game_state.real_env_steps > 780:
                 self.actions[unit_id] = factory.water()
 
         # FINALIZE ACTIONS
-        actions_to_submit = dict()
-        for uid, acts in self.actions.items():
-            if isinstance(acts, list):
-                if len(acts) > 0:  # only submit actions that are not empty
-                    actions_to_submit[uid] = acts
-            else:  # it's an int and therefore a factory action, so submit it
-                actions_to_submit[uid] = acts
+        actions_to_submit = self.finalize_action_queue()
         return actions_to_submit
