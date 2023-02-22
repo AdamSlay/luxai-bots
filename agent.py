@@ -37,9 +37,6 @@ class Agent:
             my_turn_to_place = my_turn_to_place_factory(game_state.teams[self.player].place_first, step)
 
             if factories_to_place > 0 and my_turn_to_place:
-                # TODO: place factories according to the order of the spawn spots
-                # TODO: the first factory placement should value ore somewhat
-                # TODO: the last factory placement should only value ice
                 ice = obs["board"]["ice"]
                 ore = obs["board"]["ore"]
                 ice_distances = [manhattan_dist_to_nth_closest(ice, i) for i in range(1, 5)]
@@ -122,8 +119,6 @@ class Agent:
         return False
 
     def move_toward(self, target_tile, unit, game_state, evading=False) -> None:
-        # TODO: Move_toward can be replaced by a path_to function that returns dijkstra path to the target tile
-        # TODO: This unit_positions code is what can be replaced by self.occupied_next_step
         o_facto = [u.pos for u in game_state.factories[self.opp_player].values()]
         opp_factories = get_factory_tiles(o_facto)
         unit_positions = [u.pos for u in game_state.units[self.player].values() if u.unit_id != unit.unit_id]
@@ -135,11 +130,9 @@ class Agent:
             unit_positions.extend([u.pos for u in game_state.units[self.opp_player].values()])
         next_pos = next_position(unit, direction)
         for u in unit_positions:
-            # TODO: this method is really bad, keep everything in np arrays and use 'in'
             if next_pos[0] == u[0] and next_pos[1] == u[1]:
                 new_direction = find_new_direction(unit, unit_positions, game_state)
                 new_new_pos = next_position(unit, new_direction)
-                # TODO: never figured out why this cost calculation would sometimes be None
                 if unit.move_cost(game_state, direction) is not None and unit.action_queue_cost(game_state) is not None:
                     cost = unit.move_cost(game_state, direction) + unit.action_queue_cost(game_state)
                 elif unit.unit_type == "LIGHT":
@@ -147,8 +140,6 @@ class Agent:
                 else:
                     cost = 30
                 if unit.power >= cost:
-                    # TODO: update_actions should be called in light_actions and heavy_actions
-                    # TODO: these methods should return a queue of actions
                     self.new_positions.append(new_new_pos)
                     queue = [unit.move(new_direction, repeat=0)]
                     self.update_actions(unit, queue)
@@ -164,8 +155,6 @@ class Agent:
             cost = 30
 
         if unit.power >= cost:
-            # TODO: update_actions should be called in light_actions or heavy_actions
-            # TODO: these methods should return a queue of actions
             self.new_positions.append(next_pos)
             queue = [unit.move(direction, repeat=0)]
             self.update_actions(unit, queue)
@@ -174,7 +163,6 @@ class Agent:
             unit.recharge(x=cost)
 
     def attack_opp(self, unit, opp_lichen, game_state):
-        # TODO: should return a queue of actions
         closest_lichen = closest_opp_lichen(opp_lichen, unit, self.player, self.opp_player, game_state)
         if np.all(closest_lichen == unit.pos):
             if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state) + 20:
@@ -186,31 +174,28 @@ class Agent:
                 queue = [unit.dig(n=digs)]
                 self.update_actions(unit, queue)
         else:
-            # TODO: replace this with path_to function
-            queue = []
-            rubble_map = game_state.board.rubble
-            o_facto = [u.pos for u in game_state.factories[self.opp_player].values()]
-            opp_factories = get_factory_tiles(o_facto)
-            unit_positions = [u.pos for u in game_state.units[self.player].values() if u.unit_id != unit.unit_id]
-            unit_positions.extend(opp_factories)
-            unit_positions.extend(self.new_positions)
-            path = []
-            path_positions = dijkstras_path(unit.unit_type, rubble_map, unit.pos, closest_lichen, unit_positions)
-            for i, pos in enumerate(path_positions):
-                if i + 1 < len(path_positions):
-                    path.append(self.path_to(unit, path_positions[i], path_positions[i + 1]))
-            path = [act[0] for act in path]
-            if len(path) > 20:
-                path = path[:20]
-            queue.extend(path)
-            self.update_actions(unit, queue)
-            # self.move_toward(closest_lichen, unit, game_state)
+            # queue = []
+            # rubble_map = game_state.board.rubble
+            # o_facto = [u.pos for u in game_state.factories[self.opp_player].values()]
+            # opp_factories = get_factory_tiles(o_facto)
+            # unit_positions = [u.pos for u in game_state.units[self.player].values() if u.unit_id != unit.unit_id]
+            # unit_positions.extend(opp_factories)
+            # unit_positions.extend(self.new_positions)
+            # path = []
+            # path_positions = dijkstras_path(unit.unit_type, rubble_map, unit.pos, closest_lichen, unit_positions)
+            # for i, pos in enumerate(path_positions):
+            #     if i + 1 < len(path_positions):
+            #         path.append(self.path_to(unit, path_positions[i], path_positions[i + 1]))
+            # path = [act[0] for act in path]
+            # if len(path) > 20:
+            #     path = path[:20]
+            # queue.extend(path)
+            # self.update_actions(unit, queue)
+            self.move_toward(closest_lichen, unit, game_state)
 
     def dig_rubble(self, unit, game_state, obs):
-        # TODO: should return a queue of actions
         target_tile = closest_type_tile("rubble", unit, self.player, self.opp_player, game_state, obs)
         if np.all(target_tile == unit.pos):
-            # TODO: Finding the number of digs can be it's own function: digs = dig_amount(unit, resource, game_state)
             if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state) + 20:
                 digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
                 if digs > 20:
@@ -220,18 +205,15 @@ class Agent:
                     queue.append(unit.dig(n=1))
                     self.update_actions(unit, queue)
         else:
-            # TODO: replace this with path_to function
             self.move_toward(target_tile, unit, game_state)
 
     def deliver_payload(self, unit, resource: int, amount: int, closest_f, game_state):
-        # TODO: should return a queue of actions
         direction = direction_to(unit.pos, closest_f.pos)
         adjacent_to_factory = factory_adjacent(closest_f.pos, unit)
         if adjacent_to_factory:
             queue = [unit.transfer(direction, resource, amount, n=1)]
             self.update_actions(unit, queue)
         else:
-            # TODO: replace this with path_to function
             if unit.unit_type == "HEAVY":
                 self.move_toward(closest_f.pos, unit, game_state)
             else:
@@ -259,7 +241,6 @@ class Agent:
             queue = [unit.pickup(4, pickup_amt, n=1)]
             self.update_actions(unit, queue)
         else:
-            # TODO: replace this with path_to function
             self.move_toward(home_f.pos, unit, game_state)
 
     def retreat(self, unit, opp_unit, home_f, game_state):
@@ -275,23 +256,7 @@ class Agent:
                 queue = [unit.move(direction, repeat=0)]
                 self.update_actions(unit, queue)
 
-    # def mine_tile(self, the_tile, unit, game_state) -> None:
-    #     # TODO: is this really necessary with the mining_queue functions?
-    #     if np.all(the_tile == unit.pos):
-    #         if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state):
-    #             digs = ((unit.power - unit.action_queue_cost(game_state) - 10) // (unit.dig_cost(game_state)))
-    #             if digs > 20:
-    #                 digs = 20
-    #             queue = [unit.dig(n=digs)]
-    #             self.update_actions(unit, queue)
-    #             return
-    #     else:
-    #         # TODO: replace this with path_to function
-    #         self.move_toward(the_tile, unit, game_state)
-
     def path_to(self, unit, start, finish) -> list:
-        # TODO: this is just a rise over run, not a true path
-        # TODO: also it belongs in utils if it belongs anywhere
         # dy / dx
         y = finish[1] - start[1]
         x = finish[0] - start[0]
@@ -312,24 +277,22 @@ class Agent:
         return path
 
     def distance_to(self, start, finish) -> int:
-        # TODO: fine with this, but it belongs in utils
         # dy / dx
         y = finish[1] - start[1]
         x = finish[0] - start[0]
         return abs(x) + abs(y)
 
     def mining_queue(self, resource, unit, home_f, game_state, obs, sentry=False):
-        # TODO: this is a mess, it's way too long and needs to be broken up
         queue = []
         path = []
         pickup_amt = 0
-        if sentry is True or unit.unit_type == "LIGHT":
+        if sentry is True:
             mining_tile = closest_type_tile(resource, home_f, self.player, self.opp_player, game_state, obs,
                                             this_is_the_unit=unit)
         else:
             mining_tile = closest_type_tile(resource, home_f, self.player, self.opp_player, game_state, obs, heavy=True,
                                             this_is_the_unit=unit)
-        # TODO: all this to find the closest factory tile. Maybe there is a better way?
+            print(f"Step {game_state.real_env_steps}: {unit.unit_id} is going to mine {mining_tile}", file=sys.stderr)
         tile_locations = get_factory_tiles([home_f.pos])
         tile_distances = np.mean((tile_locations - mining_tile) ** 2, 1)
         factory_tile = tile_locations[np.argmin(tile_distances)]
@@ -347,7 +310,6 @@ class Agent:
             transfer = unit.transfer(direction, res_type, cargo, n=1)
             queue.append(transfer)
 
-        # TODO: This is basically just self.recharge(). Maybe self.recharge() returns a queue?
         if game_state.real_env_steps > 10 and on_factory:
             if unit.unit_type == "LIGHT" and unit.power < 100:
                 pickup_amt = 150 - unit.power
@@ -362,17 +324,12 @@ class Agent:
                 pickup = unit.pickup(4, pickup_amt, n=1)
                 queue.append(pickup)
 
-        # TODO: this is just short circuiting dijkstra's algorithm if the unit is a heavy.
-        # TODO: either remove it altogether or implement it for all units traveling less than x tiles
         if unit.unit_type == "HEAVY":
             if unit.pos[0] != mining_tile[0] or unit.pos[1] != mining_tile[1]:
                 path = self.path_to(unit, unit.pos, mining_tile)
                 queue.extend(path)
             path_back = self.path_to(unit, mining_tile, factory_tile)
 
-        # TODO: here is Dijkstra's algorithm. Returning the path queue needs to be it's own function
-        # TODO: Also shouldn't have to crunch unit_positions once self.occupied_next_step() is implemented
-        # TODO: this can go in pathing.py or similar(along with Dijkstra's and path_cost)
         else:
             rubble_map = game_state.board.rubble
             o_facto = [u.pos for u in game_state.factories[self.opp_player].values()]
@@ -383,21 +340,29 @@ class Agent:
             if unit.pos[0] != mining_tile[0] or unit.pos[1] != mining_tile[1]:
                 path = []
                 path_positions = dijkstras_path(unit.unit_type, rubble_map, unit.pos, mining_tile, unit_positions)
+                print(
+                    f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path to the mining tile {path_positions}",
+                    file=sys.stderr)
                 for i, pos in enumerate(path_positions):
                     if i + 1 < len(path_positions):
                         path.append(self.path_to(unit, path_positions[i], path_positions[i + 1]))
                 path = [act[0] for act in path]
-                queue.extend(path)
+                if len(path) > 0:
+                    queue.extend(path)
+                else:
+                    self.dig_rubble(unit, game_state, obs)
+                    return
 
             path_back = []
             path_back_positions = dijkstras_path(unit.unit_type, rubble_map, mining_tile, factory_tile, unit_positions)
+            print(f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path back {path_back_positions}",
+                  file=sys.stderr)
 
             for i, pos in enumerate(path_back_positions):
                 if i + 1 < len(path_back_positions):
                     path_back.append(self.path_to(unit, path_back_positions[i], path_back_positions[i + 1]))
             path_back = [act[0] for act in path_back]
 
-        # TODO: path_cost() should be it's own function. Can be kept in pathing.py
         if unit.unit_type == "LIGHT":
             path_cost = 0
             step = game_state.real_env_steps
@@ -409,7 +374,6 @@ class Agent:
         else:
             path_cost = (len(path) + len(path_back)) * 20
 
-        # TODO: this can be it's own function. utils maybe pathing, idk
         num_digs = ((unit.power - unit.action_queue_cost(game_state) - path_cost + (pickup_amt // 2)) // (
             unit.dig_cost(game_state)))
         if num_digs > 20 - len(queue):
@@ -433,8 +397,6 @@ class Agent:
         return queue
 
     def update_unit_positions(self, units, game_state):
-        # TODO: we should update self.occupied_next_step() with the new positions that we get from self.current_actions
-        # TODO: this occurs after resolving any collisions among queued actions
         for uid, act in self.prev_actions.items():
             if not isinstance(act, int) and len(act) > 0 and act[0][0] == 0:  # it's a move command
                 unit = units.get(uid)
@@ -448,7 +410,10 @@ class Agent:
                         self.new_positions.append(new_pos)
 
     def update_actions(self, unit, queue):
-        # TODO: simple and effective. I like it, but prev_actions should be current_actions
+        if isinstance(queue, list) and len(queue) > 0 and queue[0][0] == 0:  # it's a move command
+            new_pos = next_position(unit, queue[0][1])
+            self.new_positions.append(new_pos)
+
         self.actions[unit.unit_id] = queue
         self.prev_actions[unit.unit_id] = queue
 
@@ -469,7 +434,6 @@ class Agent:
             else:
                 return
 
-        # TODO: mine some ore if in position to do so, this should be its own function
         factory_inv = len(self.inventory.factory_units[home_f.unit_id])
         step = game_state.real_env_steps
         if factory_inv <= 3 and home_f.cargo.water > 500 and home_f.cargo.metal < 40 and step < 700:
@@ -484,8 +448,6 @@ class Agent:
                 return
 
         if home_f.cargo.water < 100 < unit.cargo.ice:  # didn't know you could do this chained comparison
-            # TODO: I like the idea of everything returning a queue, then update_actions() is called.
-            # TODO: should do that here. Also, makes it easier to debug/test
             self.deliver_payload(unit, 0, unit.cargo.ice, home_f, game_state)
             return
 
@@ -496,7 +458,6 @@ class Agent:
             return
 
         elif unit.cargo.ice < 1000 and len(self.prev_actions[unit.unit_id]) == 0:
-            # TODO: method returns a queue then update_actions() is called, this is what I'm talking about
             queue = self.mining_queue("ice", unit, home_f, game_state, obs)
             self.update_actions(unit, queue)
             return
@@ -509,42 +470,19 @@ class Agent:
                 self.update_actions(unit, queue)
                 return
             else:
-                # TODO: should return a queue, then update_actions() is called
                 self.deliver_payload(unit, 0, unit.cargo.ice, home_f, game_state)
 
     def light_actions(self, unit, title, home_f, game_state, obs):
-        for pos in self.new_positions:
-            if unit.pos[0] == pos[0] and unit.pos[1] == pos[1]:
-                target_tile = closest_type_tile("rubble", unit, self.player, self.opp_player, game_state, obs)
-                self.move_toward(target_tile, unit, game_state)
-                return
-
-        # COLLISION AVOIDANCE FOR QUEUED ACTIONS
-        # TODO: all of this can be handled in update_unit_positions() and stored in self.occupied_next_step
-        # TODO: then any unit that needs this logic will have already had it before it gets here
-        if unit.unit_id in self.prev_actions.keys():
-            if len(self.prev_actions[unit.unit_id]) > 0:
-                next_act = self.prev_actions[unit.unit_id][0]
-                if next_act[0] == [0]:  # it's a move command
-                    direction = next_act[1]
-                    new_pos = next_position(unit, direction)
-                    unit_positions = [unit.pos for uid, unit in game_state.units[self.player].items() if
-                                      uid != unit.unit_id]
-                    unit_positions.extend(self.new_positions)
-                    miner_count = 0
-                    for pos in unit_positions:
-                        if pos[0] == new_pos[0] and pos[1] == new_pos[1]:
-                            # if title == "miner" and miner_count < 1:
-                            #     miner_count += 1
-                            #     continue
-                            self.prev_actions[unit.unit_id] = []
-                            return
+        # for pos in self.new_positions:
+        #     if unit.pos[0] == pos[0] and unit.pos[1] == pos[1]:
+        #         target_tile = closest_type_tile("rubble", unit, self.player, self.opp_player, game_state, obs)
+        #         self.move_toward(target_tile, unit, game_state)
+        #         return
 
         if unit.power < 8 and not factory_adjacent(home_f.pos, unit):
-            # TODO: really need to dial in power handling
             return
 
-        if unit.power < 30:
+        if unit.power < 50:
             if game_state.real_env_steps >= 900:
                 factories = game_state.factories[self.player]
                 factory_tiles = np.array([factory.pos for factory_id, factory in factories.items()])
@@ -557,35 +495,23 @@ class Agent:
             return
 
         if game_state.real_env_steps >= 900:
-            # TODO: this should be it's own function that returns a queue, then update_actions() is called
-            # TODO: if the queue is None, move on to the next decision check
             # If the closest rubble is not relevant at this point and opp has lichen, attack it
-            if unit.power < 150 and factory_adjacent(home_f.pos, unit):
+            if unit.power < 100 and factory_adjacent(home_f.pos, unit):
                 pickup_amt = 150 - unit.power
                 self.actions[unit.unit_id] = [unit.pickup(4, pickup_amt, n=1)]
                 return
-            opp_lichen, my_lichen = [], []
+            opp_lichen = []
             for i in self.opp_strains:
                 opp_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
-            for i in self.strains:
-                my_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
-            if np.sum(opp_lichen) > np.sum(my_lichen) * 0.4:
-                closest_rubble = closest_type_tile("rubble", unit, self.player, self.opp_player, game_state, obs)
-                dist_to_close_rub = self.distance_to(unit.pos, closest_rubble)
-                closest_lichen = closest_opp_lichen(opp_lichen, home_f, self.player, self.opp_player, game_state)
-                if self.distance_to(unit.pos, closest_lichen) < 12 and dist_to_close_rub > 8 and len(
-                        self.prev_actions[unit.unit_id]) == 0:
-                    self.attack_opp(unit, opp_lichen, game_state)
-                    return
+            if len(self.prev_actions[unit.unit_id]) == 0 and np.sum(opp_lichen) > 0:
+                self.attack_opp(unit, opp_lichen, game_state)
+                return
 
         if unit.cargo.ore > 0 and title != "miner":
-            # TODO: should return a queue, then update_actions() is called
             self.deliver_payload(unit, 1, unit.cargo.ore, home_f, game_state)
             return
 
         if title == "miner" and game_state.real_env_steps < 900:
-            # TODO: this should be it's own function that returns a queue, then update_actions() is called
-            # TODO: if the queue is None, move on to the next decision check
             home_unit_inv = len(self.inventory.factory_units[home_f.unit_id])
             if unit.cargo.ore >= 25 and home_unit_inv < 4:
                 self.deliver_payload(unit, 1, unit.cargo.ore, home_f, game_state)
@@ -594,7 +520,7 @@ class Agent:
                 self.deliver_payload(unit, 1, unit.cargo.ore, home_f, game_state)
                 return
 
-            closest_ore = closest_type_tile("ore", home_f, self.player, self.opp_player, game_state, obs,
+            closest_ore = closest_type_tile("ore", home_f, self.player, self.opp_player, game_state, obs, heavy=True,
                                             this_is_the_unit=unit)
             dist_to_ore = self.distance_to(home_f.pos, closest_ore)
             if dist_to_ore < 16:  # and home_unit_inv < 7
@@ -608,6 +534,8 @@ class Agent:
                     return
                 elif unit.cargo.ore <= 98 and len(self.prev_actions[unit.unit_id]) == 0:
                     queue = self.mining_queue("ore", unit, home_f, game_state, obs)
+                    if queue is None:
+                        return
                     # the first action will be popped off before the next step, so you need to add to self.new_positions
                     # now so that subsequent units on this step don't collide
                     if len(queue) > 0 and queue[0][0] == [0]:  # it's a move command
@@ -618,8 +546,6 @@ class Agent:
                 return
 
         if title == "digger" and game_state.real_env_steps > 700:
-            # TODO: this should be it's own function that returns a queue, then update_actions() is called
-            # TODO: if the queue is None, move on to the next decision check
             opp_lichen, my_lichen = [], []
             for i in self.opp_strains:
                 opp_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
@@ -637,20 +563,17 @@ class Agent:
         if len(self.actions[unit.unit_id]) == 0:
             rubble_here = game_state.board.rubble[unit.pos[0]][unit.pos[1]]
             if rubble_here > 0:
-                # TODO: dig_amount should be its own function that returns an int
                 digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
                 if digs > 20:
                     digs = 20
                 queue = [unit.dig(n=digs)]
                 self.update_actions(unit, queue)
                 return
-            # TODO: this should be it's own function that returns a queue, then update_actions() is called
             self.dig_rubble(unit, game_state, obs)
             return
 
     def act(self, step: int, obs, remainingOverageTime: int = 60):
         # SETUP
-        # TODO: this is where we reset self.actions_to_submit and self.occupied_next_step
         self.act_step += 1
         game_state = obs_to_game_state(step, self.env_cfg, obs)
         factories = game_state.factories[self.player]
@@ -661,7 +584,6 @@ class Agent:
         self.inventory.factory_types = dict()
 
         # STRAINS
-        # TODO: only needs to be done once per game, this seems fine. Create a function for this and store in utils
         if game_state.real_env_steps == 1:
             opp_factories = game_state.factories[self.opp_player]
             for u_id, factory in opp_factories.items():
@@ -687,19 +609,16 @@ class Agent:
         for unit_id, unit in units.items():
             # SETUP
             if unit.unit_id not in self.actions.keys():
-                # TODO: this should be called something more descriptive. self.actions_to_submit?
                 self.actions[unit.unit_id] = []
             if unit.unit_id not in self.prev_actions.keys():
                 self.prev_actions[unit.unit_id] = []
 
-            # TODO: since we calculate this for every unit, we should store it in a dict: self.closest_factory[unit_id]
             factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
             closest_f = factory_units[np.argmin(factory_distances)]
             if unit_id not in self.inventory.all_units:  # then it's new and needs to be added to inventory
                 self.inventory.factory_units[closest_f.unit_id].append(unit_id)
                 self.inventory.all_units.append(unit_id)
 
-            # TODO: this is basically just "new unit" logic, or when a unit loses its home factory
             home_id = [f_id for f_id, inv in self.inventory.factory_units.items() if unit_id in inv]
             home_id = str(home_id[0])
             if home_id in factories.keys():
@@ -709,7 +628,6 @@ class Agent:
                 home_factory = closest_f
 
             # ATTACK EVASION
-            # TODO: this should be its own function that returns a queue, then update_actions() if returns True
             evading = False
             for u_id, u in game_state.units[self.opp_player].items():
                 o_facto = [op.pos.tolist() for op in game_state.factories[self.opp_player].values()]
@@ -729,11 +647,11 @@ class Agent:
                 elif unit.unit_type == "LIGHT":
                     attacker_dist = self.distance_to(unit.pos, u.pos)
                     if attacker_dist <= 1:
-                        if unit.power < u.power or unit.power < 20:
+                        if unit.power <= u.power or unit.power < 20 or u.unit_type == "HEAVY":
                             self.recharge(unit, home_factory, game_state)
                             evading = True
                             break
-                        else:
+                        elif unit.power > u.power:
                             if u.pos.tolist() not in o_facto:
                                 self.move_toward(u.pos, unit, game_state, evading=True)
                                 evading = True
@@ -743,7 +661,6 @@ class Agent:
 
             # HEAVY
             if unit.unit_type == "HEAVY":
-                # TODO: more new unit logic, maybe make a separate function for this?
                 if home_id not in self.inventory.factory_types.keys():
                     self.inventory.factory_types[home_id] = []
                 home_homers = self.inventory.factory_types[home_id].count("homer")
@@ -759,7 +676,6 @@ class Agent:
 
             # LIGHT
             elif unit.unit_type == "LIGHT":
-                # TODO: bunch of new unit logic, again maybe make a separate function for this?
                 if home_id not in self.inventory.factory_types.keys():
                     self.inventory.factory_types[home_id] = []
                 home_helpers = self.inventory.factory_types[home_id].count("helper")
@@ -786,7 +702,6 @@ class Agent:
 
         # FACTORIES
         for unit_id, factory in factories.items():
-            # TODO: this is basically just "new factory" logic, maybe make self.new_factory_setup() function?
             if unit_id not in self.inventory.factory_units.keys():
                 self.inventory.factory_units[unit_id] = []
             if unit_id not in self.inventory.factory_types.keys():
@@ -825,7 +740,6 @@ class Agent:
                 self.actions[unit_id] = factory.water()
 
         # FINALIZE ACTIONS
-        # TODO: self.actions could more accurately be called self.actions_to_submit or similar
         actions_to_submit = dict()
         for uid, acts in self.actions.items():
             if isinstance(acts, list):

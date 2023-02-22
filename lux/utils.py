@@ -18,6 +18,8 @@ def my_turn_to_place_factory(place_first: bool, step: int):
 
 # direction (0 = center, 1 = up, 2 = right, 3 = down, 4 = left)
 def direction_to(src, target):
+    src = np.array(src)
+    target = np.array(target)
     ds = target - src
     dx = ds[0]
     dy = ds[1]
@@ -69,7 +71,6 @@ def find_new_direction(unit, unit_positions, game_state) -> int:
 
 def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_state, obs, heavy=False,
                       this_is_the_unit=None) -> np.ndarray:
-    # TODO: really want to clean this up and come up with a more elegant solution
     all_units = game_state.units[player]
     if this_is_the_unit is not None:
         unit_positions = [u.pos for u in all_units.values() if u.unit_id != this_is_the_unit.unit_id]
@@ -79,7 +80,6 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
     if heavy is False:
         unit_positions.extend([u.pos for u in game_state.units[opponent].values()])
 
-    # TODO: this will be replaced by self.occupied_next_step
     o_facto = [u.pos for u in game_state.factories[opponent].values()]
     opp_factories = get_factory_tiles(o_facto)
     unit_positions.extend(opp_factories)
@@ -91,7 +91,6 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
             unit_positions.extend([tile_locations[np.argmin(tile_distances)]])
         target_tile = tile_locations[np.argmin(tile_distances)]
     else:
-        # TODO: I would like to refine this to be more effective.
         if heavy is True:
             tile_locations = np.argwhere(game_state.board.rubble > 0)
             tile_distances = np.mean((tile_locations - unit_or_homef.pos) ** 2, 1)
@@ -122,24 +121,19 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
 
 
 def closest_opp_lichen(lichen_tiles, unit, player, opponent, game_state):
-    # TODO: this should all be replaced by self.occupied_next_step
     all_units = game_state.units[player]
     opp_fact_tiles = [u.pos for u in game_state.factories[opponent].values()]
     opp_factories = get_factory_tiles(opp_fact_tiles)
     opp_heavies = [get_factory_tiles([u.pos]) for u in game_state.units[opponent].values() if u.unit_type == "HEAVY"]
     unit_positions = [u.pos for u in all_units.values() if u.unit_id != unit.unit_id]
-    unit_positions.extend([u.pos for u in game_state.units[opponent].values()])
     unit_positions.extend(opp_factories)
     for h in opp_heavies:
         unit_positions.extend(h)
-    tile_distances = np.mean((lichen_tiles - unit.pos) ** 2, 1)
 
-    if len(tile_distances) < 1:
-        print("No lichen tiles found", file=sys.stderr)
-        return None
+    tile_distances = np.mean((lichen_tiles - unit.pos) ** 2, 1)
     target_tile = lichen_tiles[np.argmin(tile_distances)]
 
-    if unit_positions is not None:
+    if unit_positions is not None:  # don't know why this is necessary
         occupied = True
         while occupied:
             for i, u in enumerate(unit_positions):
