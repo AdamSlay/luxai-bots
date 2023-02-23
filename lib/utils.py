@@ -1,3 +1,4 @@
+from copy import deepcopy
 import random
 import sys
 
@@ -127,6 +128,34 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
     return target_tile
 
 
+def get_target_tile(resource, unit, player, new_positions, game_state, obs):
+    """Finds the closest tile to the unit that is not occupied by a unit or a factory"""
+    player_units = game_state.units[player]
+    unit_positions = [u.pos for u in player_units.values() if u.unit_id != unit.unit_id]
+    unit_positions.extend(new_positions)
+
+    type_tiles = deepcopy(obs["board"][resource])
+    for pos in unit_positions:
+        type_tiles[pos[0]][pos[1]] = 0
+
+    if resource == "rubble":
+        tile_locations = np.argwhere(((game_state.board.rubble <= 40) & (game_state.board.rubble > 0)))
+        tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+        if 20 < np.min(tile_distances) < 50:
+            tile_locations = np.argwhere((game_state.board.rubble <= 60) & (game_state.board.rubble > 0))
+            tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+        elif np.min(tile_distances) >= 50:
+            tile_locations = np.argwhere(game_state.board.rubble > 0)
+            tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+        target_tile = tile_locations[np.argmin(tile_distances)]
+    else:
+        tile_locations = np.argwhere(type_tiles == 1)
+        tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+        target_tile = tile_locations[np.argmin(tile_distances)]
+
+    return target_tile
+
+
 def closest_opp_lichen(lichen_tiles, unit, player, opponent, game_state):
     all_units = game_state.units[player]
     opp_fact_tiles = [u.pos for u in game_state.factories[opponent].values()]
@@ -157,16 +186,15 @@ def get_factory_tiles(factories):
     factory_tiles = []
     # factories = [u.pos for u in game_state.factories[player].values()]
     for f in factories:
-        tiles = []
-        tiles.append([f[0], f[1]])
-        tiles.append([f[0], f[1] + 1])
-        tiles.append([f[0] + 1, f[1]])
-        tiles.append([f[0], f[1] - 1])
-        tiles.append([f[0] - 1, f[1]])
-        tiles.append([f[0] + 1, f[1] + 1])
-        tiles.append([f[0] - 1, f[1] + 1])
-        tiles.append([f[0] + 1, f[1] - 1])
-        tiles.append([f[0] - 1, f[1] - 1])
+        tiles = [[f[0], f[1]],
+                 [f[0], f[1] + 1],
+                 [f[0] + 1, f[1]],
+                 [f[0], f[1] - 1],
+                 [f[0] - 1, f[1]],
+                 [f[0] + 1, f[1] + 1],
+                 [f[0] - 1, f[1] + 1],
+                 [f[0] + 1, f[1] - 1],
+                 [f[0] - 1, f[1] - 1]]
         factory_tiles.extend(tiles)
 
     return factory_tiles
@@ -178,7 +206,7 @@ def factory_adjacent(factory_tile, unit) -> bool:
 
 def get_closest_factory(factories, unit):
     factory_units = np.array([f for u, f in factories.items()])
-    factory_tiles = [f.pos for u, f in factories.items()]
+    factory_tiles = np.array([f.pos for u, f in factories.items()])
     factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
     closest = factory_units[np.argmin(factory_distances)]
     return closest
