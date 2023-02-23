@@ -62,6 +62,18 @@ class Agent:
                 else:
                     self.new_positions.append(new_pos)
 
+    def remove_new_position(self, unit):
+        if unit.unit_id in self.prev_actions.keys() and len(self.prev_actions[unit.unit_id]) > 0:
+            if self.prev_actions[unit.unit_id][0][0] == 0:
+                new_pos = next_position(unit, self.prev_actions[unit.unit_id][0][1])
+            else:
+                new_pos = unit.pos
+
+            for i, pos in enumerate(self.new_positions):
+                if new_pos[0] == pos[0] and new_pos[1] == pos[1]:
+                    del self.new_positions[i]
+                    break
+
     def update_actions(self, unit, queue):
         if isinstance(queue, list) and len(queue) > 0:
             if queue[0][0] == 0:  # it's a move command
@@ -77,9 +89,11 @@ class Agent:
         adjacent_to_factory = factory_adjacent(home_f.pos, unit)
         # TODO: something is going ary with heavies running out of power. That needs to be fixed
         if unit.power < 30 and not adjacent_to_factory:
+            self.remove_new_position(unit)
             self.prev_actions[unit.unit_id] = []
             return
         elif unit.power < 100:
+            self.remove_new_position(unit)
             self.prev_actions[unit.unit_id] = []
             queue = power_recharge(unit, home_f, self.player, self.opp_player, self.new_positions, game_state)
             self.update_actions(unit, queue)
@@ -98,26 +112,28 @@ class Agent:
                                             this_is_the_unit=unit)
             dist_to_ore = distance_to(home_f.pos, closest_ore)
             if dist_to_ore < 10 and len(self.prev_actions[unit.unit_id]) == 0:
-                print(f"Step {game_state.real_env_steps}: {title} {unit.unit_id} is in position to mine ore",
-                      file=sys.stderr)
+                self.remove_new_position(unit)
                 queue_builder = Queue(self)
                 queue = queue_builder.build_mining_queue("ore", unit, home_f, game_state, obs)
                 self.update_actions(unit, queue)
                 return
 
         if home_f.cargo.water < 100 < unit.cargo.ice:  # didn't know you could do this chained comparison
+            self.remove_new_position(unit)
             queue = deliver_payload(unit, 0, unit.cargo.ice, self.player, self.opp_player, self.new_positions, home_f,
                                     game_state)
             self.update_actions(unit, queue)
             return
 
         if factory_adjacent(home_f.pos, unit) and unit.cargo.ore > 0:
+            self.remove_new_position(unit)
             direction = direction_to(unit.pos, home_f.pos)
             transfer_ore = [unit.transfer(direction, 1, unit.cargo.ore, n=1)]
             self.update_actions(unit, transfer_ore)
             return
 
         elif unit.cargo.ice < 1000 and len(self.prev_actions[unit.unit_id]) == 0:
+            self.remove_new_position(unit)
             queue_builder = Queue(self)
             queue = queue_builder.build_mining_queue("ice", unit, home_f, game_state, obs)
             self.update_actions(unit, queue)
@@ -137,15 +153,14 @@ class Agent:
 
     def light_actions(self, unit, title, home_f, game_state, obs):
         if unit.power < 8 and not factory_adjacent(home_f.pos, unit):
+            self.remove_new_position(unit)
+            self.update_actions(unit, [])
             return
 
         if unit.power < 50:
+            self.remove_new_position(unit)
             if game_state.real_env_steps >= 900:
-                factories = game_state.factories[self.player]
-                factory_tiles = np.array([factory.pos for factory_id, factory in factories.items()])
-                factory_units = [factory for factory_id, factory in factories.items()]
-                factory_distances = np.mean((factory_tiles - unit.pos) ** 2, 1)
-                closest_f = factory_units[np.argmin(factory_distances)]
+                closest_f = get_closest_factory(game_state.factories[self.player], unit)
                 queue = power_recharge(unit, closest_f, self.player, self.opp_player, self.new_positions, game_state)
                 self.update_actions(unit, queue)
                 return
@@ -156,6 +171,7 @@ class Agent:
         if game_state.real_env_steps >= 900:
             # If the closest rubble is not relevant at this point and opp has lichen, attack it
             if unit.power < 100 and factory_adjacent(home_f.pos, unit):
+                self.remove_new_position(unit)
                 pickup_amt = 150 - unit.power
                 self.actions[unit.unit_id] = [unit.pickup(4, pickup_amt, n=1)]
                 return
@@ -163,11 +179,13 @@ class Agent:
             for i in self.opp_strains:
                 opp_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
             if len(self.prev_actions[unit.unit_id]) == 0 and np.sum(opp_lichen) > 0:
+                self.remove_new_position(unit)
                 queue = attack_opp(unit, self.player, self.opp_player, opp_lichen, self.new_positions, game_state)
                 self.update_actions(unit, queue)
                 return
 
         if unit.cargo.ore > 0 and title != "miner":
+            self.remove_new_position(unit)
             queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions, home_f,
                                     game_state)
             self.update_actions(unit, queue)
@@ -176,11 +194,13 @@ class Agent:
         if title == "miner" and game_state.real_env_steps < 900:
             home_unit_inv = len(self.inventory.factory_units[home_f.unit_id])
             if unit.cargo.ore >= 25 and home_unit_inv < 4:
+                self.remove_new_position(unit)
                 queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions,
                                         home_f, game_state)
                 self.update_actions(unit, queue)
                 return
             if unit.cargo.ore > 98:
+                self.remove_new_position(unit)
                 queue = deliver_payload(unit, 1, unit.cargo.ore, self.player, self.opp_player, self.new_positions,
                                         home_f, game_state)
                 self.update_actions(unit, queue)
@@ -192,6 +212,7 @@ class Agent:
             if dist_to_ore < 16:  # and home_unit_inv < 7
                 rubble_here = game_state.board.rubble[unit.pos[0]][unit.pos[1]]
                 if rubble_here > 0:
+                    self.remove_new_position(unit)
                     digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
                     if digs > 20:
                         digs = 20
@@ -199,15 +220,16 @@ class Agent:
                     self.update_actions(unit, queue)
                     return
                 elif unit.cargo.ore <= 98 and len(self.prev_actions[unit.unit_id]) == 0:
+                    self.remove_new_position(unit)
                     queue_builder = Queue(self)
                     queue = queue_builder.build_mining_queue("ore", unit, home_f, game_state, obs)
                     if queue is None:
                         return
                     # the first action will be popped off before the next step, so you need to add to self.new_positions
                     # now so that subsequent units on this step don't collide
-                    if len(queue) > 0 and queue[0][0] == [0]:  # it's a move command
-                        new_q_pos = next_position(unit, queue[0][1])
-                        self.new_positions.append(new_q_pos)
+                    # if len(queue) > 0 and queue[0][0] == [0]:  # it's a move command
+                    #     new_q_pos = next_position(unit, queue[0][1])
+                    #     self.new_positions.append(new_q_pos)
                     self.update_actions(unit, queue)
                     return
                 return
@@ -221,10 +243,12 @@ class Agent:
             if np.sum(opp_lichen) > np.sum(my_lichen) * 0.4:
                 closest_lichen = closest_opp_lichen(opp_lichen, home_f, self.player, self.opp_player, game_state)
                 if distance_to(unit.pos, closest_lichen) < 12 and game_state.real_env_steps < 900:
+                    self.remove_new_position(unit)
                     queue = attack_opp(unit, self.player, self.opp_player, opp_lichen, self.new_positions, game_state)
                     self.update_actions(unit, queue)
                     return
                 elif game_state.real_env_steps >= 900:
+                    self.remove_new_position(unit)
                     queue = attack_opp(unit, self.player, self.opp_player, opp_lichen, self.new_positions, game_state)
                     self.update_actions(unit, queue)
                     return
@@ -238,12 +262,14 @@ class Agent:
                         diggable = False
                         break
                 if diggable:
+                    self.remove_new_position(unit)
                     digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
                     if digs > 20:
                         digs = 20
                     queue = [unit.dig(n=digs)]
                     self.update_actions(unit, queue)
                     return
+            self.remove_new_position(unit)
             queue = dig_rubble(unit, self.player, self.opp_player, self.new_positions, game_state, obs)
             self.update_actions(unit, queue)
             return

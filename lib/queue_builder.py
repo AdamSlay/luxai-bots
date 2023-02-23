@@ -62,10 +62,7 @@ class Queue:
 
         else:
             rubble_map = game_state.board.rubble
-            o_facto = [u.pos for u in game_state.factories[self.agent.opp_player].values()]
-            opp_factories = get_factory_tiles(o_facto)
             unit_positions = [u.pos for u in game_state.units[self.agent.player].values() if u.unit_id != unit.unit_id]
-            unit_positions.extend(opp_factories)
             unit_positions.extend(self.agent.new_positions)
             if unit.pos[0] != mining_tile[0] or unit.pos[1] != mining_tile[1]:
                 path = []
@@ -115,7 +112,6 @@ class Queue:
         if num_digs < 1:
             queue = []
 
-        # TODO: come up with some logic that makes sure the unit is not going to be stuck with no power
         if len(queue) > 20 - len(path_back):
             path_back_steps = 20 - len(queue)
             if path_back_steps > 0:

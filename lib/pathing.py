@@ -2,10 +2,7 @@ from lib.utils import get_factory_tiles, direction_to, next_position, find_new_d
 
 
 def move_toward(target_tile, unit, player, opp_player, new_positions, game_state, evading=False) -> list:
-    o_facto = [u.pos for u in game_state.factories[opp_player].values()]
-    opp_factories = get_factory_tiles(o_facto)
     unit_positions = [u.pos for u in game_state.units[player].values() if u.unit_id != unit.unit_id]
-    unit_positions.extend(opp_factories)
     unit_positions.extend(new_positions)
 
     direction = direction_to(unit.pos, target_tile)
