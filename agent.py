@@ -209,7 +209,7 @@ class Agent:
             closest_ore = closest_type_tile("ore", home_f, self.player, self.opp_player, game_state, obs, heavy=True,
                                             this_is_the_unit=unit)
             dist_to_ore = distance_to(home_f.pos, closest_ore)
-            if dist_to_ore < 16:  # and home_unit_inv < 7
+            if dist_to_ore < 16:
                 rubble_here = game_state.board.rubble[unit.pos[0]][unit.pos[1]]
                 if rubble_here > 0:
                     self.remove_new_position(unit)

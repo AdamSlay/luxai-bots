@@ -102,12 +102,11 @@ class Queue:
 
         num_digs = ((unit.power - unit.action_queue_cost(game_state) - path_cost + (pickup_amt // 2)) // (
             unit.dig_cost(game_state)))
-        if num_digs > 20 - len(queue):
-            num_digs = 20 - len(queue)
-        for i in range(num_digs):
-            queue.append(unit.dig(n=1))
-        if num_digs < 1:
-            queue = []
+        if num_digs > 0:
+            if num_digs > 20 - len(queue):
+                num_digs = 20 - len(queue)
+            for i in range(num_digs):
+                queue.append(unit.dig(n=1))
 
         if len(queue) > 20 - len(path_back):
             path_back_steps = 20 - len(queue)
