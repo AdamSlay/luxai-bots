@@ -225,11 +225,6 @@ class Agent:
                     queue = queue_builder.build_mining_queue("ore", unit, home_f, game_state, obs)
                     if queue is None:
                         return
-                    # the first action will be popped off before the next step, so you need to add to self.new_positions
-                    # now so that subsequent units on this step don't collide
-                    # if len(queue) > 0 and queue[0][0] == [0]:  # it's a move command
-                    #     new_q_pos = next_position(unit, queue[0][1])
-                    #     self.new_positions.append(new_q_pos)
                     self.update_actions(unit, queue)
                     return
                 return
@@ -281,7 +276,7 @@ class Agent:
         units = game_state.units[self.player]
         opp_factories = game_state.factories[self.opp_player]
         my_factory_centers = [f.pos for i, f in factories.items()]
-        opp_factory_centers = np.array([factory.pos for factory_id, factory in opp_factories.items()])
+        opp_factory_centers = np.array([f.pos for i, f in opp_factories.items()])
         opp_factory_tiles = get_factory_tiles(opp_factory_centers)
 
         self.actions = dict()
@@ -290,7 +285,6 @@ class Agent:
         self.new_positions = my_factory_centers
         self.new_positions.extend(opp_factory_tiles)
         self.update_new_positions(units)
-
 
         # STRAINS
         if game_state.real_env_steps == 1:
@@ -324,6 +318,7 @@ class Agent:
             evading, evasion_queue = evade(unit, home_factory, self.player, self.opp_player, self.new_positions,
                                            game_state)
             if evading:
+                self.remove_new_position(unit)
                 self.update_actions(unit, evasion_queue)
                 continue
 
@@ -367,11 +362,7 @@ class Agent:
                     if unit_id not in self.inventory.factory_units[home_id]:
                         self.inventory.factory_units[home_id].append(unit_id)
 
-                if self.prev_actions[unit_id]:
-                    self.update_new_positions(units)
-                else:
-                    self.light_actions(unit, title, home_factory, game_state, obs)
-
+                self.light_actions(unit, title, home_factory, game_state, obs)
 
         # FACTORIES
         for unit_id, factory in factories.items():

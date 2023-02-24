@@ -61,15 +61,6 @@ def next_position(unit, direction):
 
 
 def find_new_direction(unit, unit_positions, game_state) -> int:
-    if game_state.real_env_steps % 2 == 0:
-        center_ok = True
-        for pos in unit_positions:
-            if unit.pos[0] == pos[0] and unit.pos[1] == pos[1]:
-                center_ok = False
-                break
-        if center_ok:
-            return 0
-
     r = list(range(1, 5))
     random.shuffle(r)
     for d in r:

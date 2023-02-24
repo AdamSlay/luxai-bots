@@ -1,9 +1,10 @@
 from math import floor
+import numpy as np
 
 from lib.actions import dig_rubble
 from lib.dijkstra import dijkstras_path
 from lib.pathing import path_to
-from lib.utils import *
+from lib.utils import get_target_tile, factory_adjacent, get_factory_tiles, direction_to
 
 
 class Queue:
@@ -14,15 +15,11 @@ class Queue:
         queue = []
         path = []
         pickup_amt = 0
-        if sentry is True:
-            mining_tile = closest_type_tile(resource, home_f, self.agent.player, self.agent.opp_player, game_state, obs,
-                                            this_is_the_unit=unit)
-        else:
-            mining_tile = closest_type_tile(resource, home_f, self.agent.player, self.agent.opp_player, game_state, obs,
-                                            heavy=True,
-                                            this_is_the_unit=unit)
-            # print(f"Step {game_state.real_env_steps}: {unit.unit_id} is going to mine {mining_tile}",
-            #       file=sys.stderr)
+        # mining_tile = closest_type_tile(resource, home_f, self.agent.player, self.agent.opp_player, game_state, obs,
+        #                                 heavy=True,
+        #                                 this_is_the_unit=unit)
+        mining_tile = get_target_tile(resource, unit, self.agent.player, self.agent.new_positions, game_state, obs)
+
         tile_locations = get_factory_tiles([home_f.pos])
         tile_distances = np.mean((tile_locations - mining_tile) ** 2, 1)
         factory_tile = tile_locations[np.argmin(tile_distances)]
