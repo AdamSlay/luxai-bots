@@ -216,7 +216,9 @@ class Agent:
                     digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
                     if digs > 20:
                         digs = 20
-                    queue = [unit.dig(n=digs)]
+                    queue = []
+                    for i in range(digs):
+                        queue.append(unit.dig(n=1))
                     self.update_actions(unit, queue)
                     return
                 elif unit.cargo.ore <= 98 and len(self.prev_actions[unit.unit_id]) == 0:
@@ -261,7 +263,9 @@ class Agent:
                     digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
                     if digs > 20:
                         digs = 20
-                    queue = [unit.dig(n=digs)]
+                    queue = []
+                    for i in range(digs):
+                        queue.append(unit.dig(n=1))
                     self.update_actions(unit, queue)
                     return
             self.remove_new_position(unit)

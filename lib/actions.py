@@ -19,7 +19,6 @@ def attack_opp(unit, player, opp_player, opp_lichen, new_positions, game_state):
 
 
 def dig_rubble(unit, player, opp_player, new_positions, game_state, obs):
-    # target_tile = closest_type_tile("rubble", unit, player, opp_player, game_state, obs)
     target_tile = get_target_tile("rubble", unit, player, new_positions, game_state, obs)
     if np.all(target_tile == unit.pos):
         if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state) + 20:

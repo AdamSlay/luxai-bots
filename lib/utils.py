@@ -131,7 +131,9 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
 def get_target_tile(resource, unit, player, new_positions, game_state, obs):
     """Finds the closest tile to the unit that is not occupied by a unit or a factory"""
     player_units = game_state.units[player]
-    unit_positions = [u.pos for u in player_units.values() if u.unit_id != unit.unit_id]
+    unit_positions = []
+    if unit.unit_type == "LIGHT":  # this is so the heavy doesn't try to avoid light units that might be on their ice tile
+        unit_positions = [u.pos for uid, u in player_units.items() if uid != unit.unit_id]
     unit_positions.extend(new_positions)
 
     type_tiles = deepcopy(obs["board"][resource])

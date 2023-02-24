@@ -11,13 +11,10 @@ class Queue:
     def __init__(self, agent):
         self.agent = agent
 
-    def build_mining_queue(self, resource, unit, home_f, game_state, obs, sentry=False):
+    def build_mining_queue(self, resource, unit, home_f, game_state, obs):
         queue = []
         path = []
         pickup_amt = 0
-        # mining_tile = closest_type_tile(resource, home_f, self.agent.player, self.agent.opp_player, game_state, obs,
-        #                                 heavy=True,
-        #                                 this_is_the_unit=unit)
         mining_tile = get_target_tile(resource, unit, self.agent.player, self.agent.new_positions, game_state, obs)
 
         tile_locations = get_factory_tiles([home_f.pos])
