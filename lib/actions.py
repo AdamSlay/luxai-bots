@@ -1,6 +1,7 @@
 import numpy as np
+import sys
 
-from lib.utils import closest_opp_lichen, closest_type_tile, direction_to, distance_to, factory_adjacent, get_target_tile
+from lib.utils import closest_opp_lichen, direction_to, distance_to, factory_adjacent, get_target_tile
 from lib.pathing import move_toward
 
 
@@ -20,14 +21,21 @@ def attack_opp(unit, player, opp_player, opp_lichen, new_positions, game_state):
 
 def dig_rubble(unit, player, opp_player, new_positions, game_state, obs):
     target_tile = get_target_tile("rubble", unit, player, new_positions, game_state, obs)
-    if np.all(target_tile == unit.pos):
+    if target_tile[0] == unit.pos[0] and target_tile[1] == unit.pos[1]:
         if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state) + 20:
-            digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
+            if unit.unit_type == "LIGHT":
+                expense = unit.power - 25
+            else:
+                expense = unit.power - 80
+            digs = expense // (unit.dig_cost(game_state))
             if digs > 20:
                 digs = 20
             queue = []
             for i in range(digs):
                 queue.append(unit.dig(n=1))
+            print(
+                f"Step {game_state.real_env_steps}: {unit.unit_id} found {target_tile} which does not occur in {new_positions}",
+                file=sys.stderr)
             return queue
     else:
         queue = move_toward(target_tile, unit, player, opp_player, new_positions, game_state)

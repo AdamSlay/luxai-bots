@@ -128,7 +128,7 @@ def closest_type_tile(tile_type: str, unit_or_homef, player, opponent, game_stat
     return target_tile
 
 
-def get_target_tile(resource, unit, player, new_positions, game_state, obs):
+def get_target_tile(resource, unit, player, new_positions, game_state, obs, start=None):
     """Finds the closest tile to the unit that is not occupied by a unit or a factory"""
     player_units = game_state.units[player]
     unit_positions = []
@@ -138,21 +138,28 @@ def get_target_tile(resource, unit, player, new_positions, game_state, obs):
 
     type_tiles = deepcopy(obs["board"][resource])
     for pos in unit_positions:
-        type_tiles[pos[0]][pos[1]] = 0
+        x = int(pos[0])
+        y = int(pos[1])
+        type_tiles[x, y] = 0
+
+    if start is not None:
+        start_pos = start
+    else:
+        start_pos = unit.pos
 
     if resource == "rubble":
-        tile_locations = np.argwhere(((game_state.board.rubble <= 40) & (game_state.board.rubble > 0)))
-        tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+        tile_locations = np.argwhere(((type_tiles <= 40) & (type_tiles > 0)))
+        tile_distances = np.mean((tile_locations - start_pos) ** 2, 1)
         if 20 < np.min(tile_distances) < 50:
-            tile_locations = np.argwhere((game_state.board.rubble <= 60) & (game_state.board.rubble > 0))
-            tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+            tile_locations = np.argwhere((type_tiles <= 60) & (type_tiles > 0))
+            tile_distances = np.mean((tile_locations - start_pos) ** 2, 1)
         elif np.min(tile_distances) >= 50:
-            tile_locations = np.argwhere(game_state.board.rubble > 0)
-            tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+            tile_locations = np.argwhere(type_tiles > 0)
+            tile_distances = np.mean((tile_locations - start_pos) ** 2, 1)
         target_tile = tile_locations[np.argmin(tile_distances)]
     else:
         tile_locations = np.argwhere(type_tiles == 1)
-        tile_distances = np.mean((tile_locations - unit.pos) ** 2, 1)
+        tile_distances = np.mean((tile_locations - start_pos) ** 2, 1)
         target_tile = tile_locations[np.argmin(tile_distances)]
 
     return target_tile

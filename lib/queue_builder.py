@@ -15,7 +15,7 @@ class Queue:
         queue = []
         path = []
         pickup_amt = 0
-        mining_tile = get_target_tile(resource, unit, self.agent.player, self.agent.new_positions, game_state, obs)
+        mining_tile = get_target_tile(resource, unit, self.agent.player, self.agent.new_positions, game_state, obs, start=home_f.pos)
 
         tile_locations = get_factory_tiles([home_f.pos])
         tile_distances = np.mean((tile_locations - mining_tile) ** 2, 1)

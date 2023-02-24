@@ -1,4 +1,4 @@
-from lib.utils import get_factory_tiles, direction_to, next_position, find_new_direction
+from lib.utils import direction_to, next_position, find_new_direction
 
 
 def move_toward(target_tile, unit, player, opp_player, new_positions, game_state, evading=False) -> list:
@@ -20,7 +20,7 @@ def move_toward(target_tile, unit, player, opp_player, new_positions, game_state
             else:
                 cost = 30
             if unit.power >= cost:
-                new_positions.append(new_new_pos)
+                # new_positions.append(new_new_pos)
                 return [unit.move(new_direction, repeat=0)]
             else:
                 return [unit.recharge(x=cost)]
@@ -32,7 +32,7 @@ def move_toward(target_tile, unit, player, opp_player, new_positions, game_state
         cost = 30
 
     if unit.power >= cost:
-        new_positions.append(next_pos)
+        # new_positions.append(next_pos)
         return [unit.move(direction, repeat=0)]
     else:
         return [unit.recharge(x=cost)]

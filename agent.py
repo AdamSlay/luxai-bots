@@ -55,11 +55,15 @@ class Agent:
                     new_pos = next_position(unit, act[0][1])
                 else:
                     new_pos = unit.pos
+
+                append_to_new = True
                 for pos in self.new_positions:
                     if new_pos[0] == pos[0] and new_pos[1] == pos[1]:
+                        print(f"unit {unit.unit_id} tried to move to {new_pos} but it's already occupied", file=sys.stderr)
+                        append_to_new = False
                         self.prev_actions[uid] = []
                         break
-                else:
+                if append_to_new:
                     self.new_positions.append(new_pos)
 
     def remove_new_position(self, unit):
@@ -250,7 +254,7 @@ class Agent:
                     self.update_actions(unit, queue)
                     return
 
-        if len(self.actions[unit.unit_id]) == 0:
+        if len(self.prev_actions[unit.unit_id]) == 0:
             rubble_here = game_state.board.rubble[unit.pos[0]][unit.pos[1]]
             if rubble_here > 0:
                 diggable = True
@@ -259,7 +263,6 @@ class Agent:
                         diggable = False
                         break
                 if diggable:
-                    self.remove_new_position(unit)
                     digs = (unit.power - unit.action_queue_cost(game_state) - 20) // (unit.dig_cost(game_state))
                     if digs > 20:
                         digs = 20
@@ -268,7 +271,6 @@ class Agent:
                         queue.append(unit.dig(n=1))
                     self.update_actions(unit, queue)
                     return
-            self.remove_new_position(unit)
             queue = dig_rubble(unit, self.player, self.opp_player, self.new_positions, game_state, obs)
             self.update_actions(unit, queue)
             return
@@ -347,7 +349,7 @@ class Agent:
                     self.inventory.factory_types[home_id] = []
                 home_helpers = self.inventory.factory_types[home_id].count("helper")
                 home_miners = self.inventory.factory_types[home_id].count("miner")
-                if home_miners < 1:
+                if home_miners == 0:
                     title = "miner"
                     self.inventory.unit_title[unit_id] = "miner"
                     self.inventory.factory_types[home_id].append("miner")
