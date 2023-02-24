@@ -2,7 +2,8 @@ import numpy as np
 import sys
 
 from lib.utils import closest_opp_lichen, direction_to, distance_to, factory_adjacent, get_target_tile
-from lib.pathing import move_toward
+from lib.pathing import move_toward, path_to
+from lib.dijkstra import dijkstras_path
 
 
 def attack_opp(unit, player, opp_player, opp_strains, new_positions, game_state, obs):
@@ -18,7 +19,22 @@ def attack_opp(unit, player, opp_player, opp_strains, new_positions, game_state,
                     queue.append(unit.dig(n=1))
                 return queue
     else:
-        return move_toward(closest_lichen, unit, player, opp_player, new_positions, game_state)
+        # return move_toward(closest_lichen, unit, player, opp_player, new_positions, game_state)
+        rubble_map = game_state.board.rubble
+        path = dijkstras_path(unit.unit_type, rubble_map, unit.pos, closest_lichen, new_positions)
+        if len(path) > 1:
+            queue = []
+            for i, pos in enumerate(path):
+                if i + 1 < len(path):
+                    queue.append(path_to(unit, path[i], path[i + 1]))
+            queue = [act[0] for act in queue]
+            if len(queue) > 20:
+                queue = queue[:20]
+            return queue
+        else:
+            print(f"Step {game_state.real_env_steps}: {unit.unit_id} couldn't find a path to {closest_lichen}",
+                  file=sys.stderr)
+            return move_toward(closest_lichen, unit, player, opp_player, new_positions, game_state)
 
 
 def dig_rubble(unit, player, opp_player, new_positions, game_state, obs):

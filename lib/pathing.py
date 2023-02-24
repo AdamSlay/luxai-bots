@@ -12,7 +12,6 @@ def move_toward(target_tile, unit, player, opp_player, new_positions, game_state
     for u in unit_positions:
         if next_pos[0] == u[0] and next_pos[1] == u[1]:
             new_direction = find_new_direction(unit, unit_positions, game_state)
-            new_new_pos = next_position(unit, new_direction)
             if unit.move_cost(game_state, direction) is not None and unit.action_queue_cost(game_state) is not None:
                 cost = unit.move_cost(game_state, direction) + unit.action_queue_cost(game_state)
             elif unit.unit_type == "LIGHT":
@@ -20,7 +19,6 @@ def move_toward(target_tile, unit, player, opp_player, new_positions, game_state
             else:
                 cost = 30
             if unit.power >= cost:
-                # new_positions.append(new_new_pos)
                 return [unit.move(new_direction, repeat=0)]
             else:
                 return [unit.recharge(x=cost)]

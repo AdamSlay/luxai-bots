@@ -26,10 +26,11 @@ def dijkstras_path(unit_type, rubble_map, start, finish, unit_positions):
         for neighbor in get_neighbors(node, rubble_map):
             if neighbor in unit_positions or neighbor in visited:
                 continue
-            if unit_type == "HEAVY":
-                move_cost = 20
-            else:
-                move_cost = 20
+            # if unit_type == "HEAVY":
+            #     move_cost = 20
+            # else:
+            #     move_cost = 20
+            move_cost = 5
             neighbor_cost = cost + move_cost + rubble_map[neighbor[0]][neighbor[1]]
             queue.put((neighbor_cost, neighbor))
             prev[neighbor] = node
