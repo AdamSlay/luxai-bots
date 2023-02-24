@@ -51,43 +51,36 @@ class Queue:
                 pickup = unit.pickup(4, pickup_amt, n=1)
                 queue.append(pickup)
 
-        if unit.unit_type == "HEAVY":
-            if unit.pos[0] != mining_tile[0] or unit.pos[1] != mining_tile[1]:
-                path = path_to(unit, unit.pos, mining_tile)
-                queue.extend(path)
-            path_back = path_to(unit, mining_tile, factory_tile)
-
-        else:
-            rubble_map = game_state.board.rubble
-            unit_positions = [u.pos for u in game_state.units[self.agent.player].values() if u.unit_id != unit.unit_id]
-            unit_positions.extend(self.agent.new_positions)
-            if unit.pos[0] != mining_tile[0] or unit.pos[1] != mining_tile[1]:
-                path = []
-                path_positions = dijkstras_path(unit.unit_type, rubble_map, unit.pos, mining_tile, unit_positions)
-                # print(
-                #     f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path to the mining tile {path_positions}",
-                #     file=sys.stderr)
-                for i, pos in enumerate(path_positions):
-                    if i + 1 < len(path_positions):
-                        path.append(path_to(unit, path_positions[i], path_positions[i + 1]))
-                path = [act[0] for act in path]
-                if len(path) > 0:
-                    queue.extend(path)
-                else:
-                    queue = dig_rubble(unit, self.agent.player, self.agent.opp_player, self.agent.new_positions, game_state, obs)
-                    return queue
-
-            path_back = []
-            path_back_positions = dijkstras_path(unit.unit_type, rubble_map, mining_tile, factory_tile,
-                                                 unit_positions)
+        rubble_map = game_state.board.rubble
+        unit_positions = [u.pos for u in game_state.units[self.agent.player].values() if u.unit_id != unit.unit_id]
+        unit_positions.extend(self.agent.new_positions)
+        if unit.pos[0] != mining_tile[0] or unit.pos[1] != mining_tile[1]:
+            path = []
+            path_positions = dijkstras_path(unit.unit_type, rubble_map, unit.pos, mining_tile, unit_positions)
             # print(
-            #     f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path back {path_back_positions}",
+            #     f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path to the mining tile {path_positions}",
             #     file=sys.stderr)
+            for i, pos in enumerate(path_positions):
+                if i + 1 < len(path_positions):
+                    path.append(path_to(unit, path_positions[i], path_positions[i + 1]))
+            path = [act[0] for act in path]
+            if len(path) > 0:
+                queue.extend(path)
+            else:
+                queue = dig_rubble(unit, self.agent.player, self.agent.opp_player, self.agent.new_positions, game_state, obs)
+                return queue
 
-            for i, pos in enumerate(path_back_positions):
-                if i + 1 < len(path_back_positions):
-                    path_back.append(path_to(unit, path_back_positions[i], path_back_positions[i + 1]))
-            path_back = [act[0] for act in path_back]
+        path_back = []
+        path_back_positions = dijkstras_path(unit.unit_type, rubble_map, mining_tile, factory_tile,
+                                             unit_positions)
+        # print(
+        #     f"Step {game_state.real_env_steps}: {unit.unit_id} is following this path back {path_back_positions}",
+        #     file=sys.stderr)
+
+        for i, pos in enumerate(path_back_positions):
+            if i + 1 < len(path_back_positions):
+                path_back.append(path_to(unit, path_back_positions[i], path_back_positions[i + 1]))
+        path_back = [act[0] for act in path_back]
 
         if unit.unit_type == "LIGHT":
             path_cost = 0
