@@ -184,7 +184,7 @@ class Agent:
                 opp_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
             if len(self.prev_actions[unit.unit_id]) == 0 and np.sum(opp_lichen) > 0:
                 self.remove_new_position(unit)
-                queue = attack_opp(unit, self.player, self.opp_player, opp_lichen, self.new_positions, game_state)
+                queue = attack_opp(unit, self.player, self.opp_player, self.opp_strains, self.new_positions, game_state, obs)
                 self.update_actions(unit, queue)
                 return
 
@@ -242,15 +242,15 @@ class Agent:
             for i in self.strains:
                 my_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
             if np.sum(opp_lichen) > np.sum(my_lichen) * 0.4:
-                closest_lichen = closest_opp_lichen(opp_lichen, home_f, self.player, self.opp_player, game_state)
+                closest_lichen = closest_opp_lichen(self.opp_strains, home_f, self.player, self.new_positions, game_state, obs)
                 if distance_to(unit.pos, closest_lichen) < 12 and game_state.real_env_steps < 900:
                     self.remove_new_position(unit)
-                    queue = attack_opp(unit, self.player, self.opp_player, opp_lichen, self.new_positions, game_state)
+                    queue = attack_opp(unit, self.player, self.opp_player, self.opp_strains, self.new_positions, game_state, obs)
                     self.update_actions(unit, queue)
                     return
                 elif game_state.real_env_steps >= 900:
                     self.remove_new_position(unit)
-                    queue = attack_opp(unit, self.player, self.opp_player, opp_lichen, self.new_positions, game_state)
+                    queue = attack_opp(unit, self.player, self.opp_player, self.opp_strains, self.new_positions, game_state, obs)
                     self.update_actions(unit, queue)
                     return
 

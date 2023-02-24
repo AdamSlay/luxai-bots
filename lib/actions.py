@@ -5,16 +5,18 @@ from lib.utils import closest_opp_lichen, direction_to, distance_to, factory_adj
 from lib.pathing import move_toward
 
 
-def attack_opp(unit, player, opp_player, opp_lichen, new_positions, game_state):
-    closest_lichen = closest_opp_lichen(opp_lichen, unit, player, opp_player, game_state)
+def attack_opp(unit, player, opp_player, opp_strains, new_positions, game_state, obs):
+    closest_lichen = closest_opp_lichen(opp_strains, unit, player, new_positions, game_state, obs)
     if np.all(closest_lichen == unit.pos):
         if unit.power >= unit.dig_cost(game_state) + unit.action_queue_cost(game_state) + 20:
             digs = (unit.power - unit.action_queue_cost(game_state) - 30) // (unit.dig_cost(game_state))
-            if digs > 20:
-                digs = 20
-            elif digs < 1:
-                digs = 1
-            return [unit.dig(n=digs)]
+            if digs > 0:
+                if digs > 20:
+                    digs = 20
+                queue = []
+                for i in range(digs):
+                    queue.append(unit.dig(n=1))
+                return queue
     else:
         return move_toward(closest_lichen, unit, player, opp_player, new_positions, game_state)
 

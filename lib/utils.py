@@ -165,30 +165,19 @@ def get_target_tile(resource, unit, player, new_positions, game_state, obs, star
     return target_tile
 
 
-def closest_opp_lichen(lichen_tiles, unit, player, opponent, game_state):
+def closest_opp_lichen(opp_strains, unit, player, new_positions, game_state, obs):
     all_units = game_state.units[player]
-    opp_fact_tiles = [u.pos for u in game_state.factories[opponent].values()]
-    opp_factories = get_factory_tiles(opp_fact_tiles)
-    opp_heavies = [get_factory_tiles([u.pos]) for u in game_state.units[opponent].values() if u.unit_type == "HEAVY"]
     unit_positions = [u.pos for u in all_units.values() if u.unit_id != unit.unit_id]
-    unit_positions.extend(opp_factories)
-    for h in opp_heavies:
-        unit_positions.extend(h)
-
-    tile_distances = np.mean((lichen_tiles - unit.pos) ** 2, 1)
-    target_tile = lichen_tiles[np.argmin(tile_distances)]
-
-    if unit_positions is not None:  # don't know why this is necessary
-        occupied = True
-        while occupied:
-            for i, u in enumerate(unit_positions):
-                if i < len(tile_distances) - 1:
-                    if u[0] == target_tile[0] and u[1] == target_tile[1]:
-                        target_tile = lichen_tiles[np.argpartition(tile_distances, i + 1)[i]]
-                        break
-            occupied = False
-
-    return target_tile
+    unit_positions.extend(new_positions)
+    lichen_tiles = deepcopy(obs["board"]["lichen_strains"])
+    for pos in unit_positions:
+        x = int(pos[0])
+        y = int(pos[1])
+        lichen_tiles[x, y] = 1000  # this is a null value for the lichen strains
+    tile_locations = np.argwhere(np.isin(lichen_tiles, opp_strains))
+    tile_distances = [distance_to(unit.pos, tile) for tile in tile_locations]
+    target_tile = tile_locations[np.argmin(tile_distances)]
+    return np.array(target_tile)
 
 
 def get_factory_tiles(factories):
