@@ -31,8 +31,6 @@ def attack_opp(unit, player, opp_player, opp_strains, new_positions, game_state,
             queue = queue[:20]
         return queue
     else:
-        print(f"Step {game_state.real_env_steps}: {unit.unit_id} couldn't find a path to {closest_lichen}",
-              file=sys.stderr)
         return move_toward(closest_lichen, unit, player, opp_player, new_positions, game_state)
 
 
@@ -50,9 +48,6 @@ def dig_rubble(unit, player, opp_player, new_positions, game_state, obs):
             queue = []
             for i in range(digs):
                 queue.append(unit.dig(n=1))
-            print(
-                f"Step {game_state.real_env_steps}: {unit.unit_id} found {target_tile} which does not occur in {new_positions}",
-                file=sys.stderr)
             return queue
     else:
         queue = move_toward(target_tile, unit, player, opp_player, new_positions, game_state)
@@ -72,8 +67,8 @@ def deliver_payload(unit, resource: int, amount: int, player, opp_player, new_po
 
 
 def power_recharge(unit, home_f, player, opp_player, new_positions, game_state):
-    adjacent_to_factory = factory_adjacent(home_f.pos, unit)
-    if adjacent_to_factory:
+    on_factory = factory_adjacent(home_f.pos, unit)
+    if on_factory:
         can_pickup = True
         for pos in new_positions:
             if unit.pos[0] == pos[0] and unit.pos[1] == pos[1]:

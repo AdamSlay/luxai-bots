@@ -88,7 +88,7 @@ class Queue:
                 step += 1
             path_cost = floor(path_cost) + 31
         else:
-            path_cost = (len(path) + len(path_back)) * 20
+            path_cost = (len(path) + len(path_back)) * 40
 
         num_digs = ((unit.power - unit.action_queue_cost(game_state) - path_cost + (pickup_amt // 2)) // (
             unit.dig_cost(game_state)))

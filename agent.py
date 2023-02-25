@@ -94,6 +94,12 @@ class Agent:
             self.remove_new_position(unit)
             self.prev_actions[unit.unit_id] = []
             return
+        elif adjacent_to_factory and unit.power < 300:
+            self.remove_new_position(unit)
+            self.prev_actions[unit.unit_id] = []
+            queue = power_recharge(unit, home_f, self.player, self.opp_player, self.new_positions, game_state)
+            self.update_actions(unit, queue)
+            return
         elif unit.power < 100:
             self.remove_new_position(unit)
             self.prev_actions[unit.unit_id] = []
@@ -239,7 +245,7 @@ class Agent:
                 opp_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
             for i in self.strains:
                 my_lichen.extend(np.argwhere((game_state.board.lichen_strains == i)))
-            if np.sum(opp_lichen) > np.sum(my_lichen) * 0.4:
+            if len(opp_lichen) > 10:
                 closest_lichen = closest_opp_lichen(self.opp_strains, home_f, self.player, self.new_positions, game_state, obs)
                 if distance_to(unit.pos, closest_lichen) < 12 and game_state.real_env_steps < 900:
                     self.remove_new_position(unit)
@@ -379,10 +385,9 @@ class Agent:
                                                          uid in units.keys()]
 
             number_of_homers = self.inventory.factory_types[unit_id].count("homer")
-            if number_of_homers == 0:
-                if factory.can_build_heavy(game_state):
-                    self.actions[unit_id] = factory.build_heavy()
-                    continue
+            if number_of_homers == 0 and factory.can_build_heavy(game_state):
+                self.actions[unit_id] = factory.build_heavy()
+                continue
             else:
                 number_of_helpers = self.inventory.factory_types[unit_id].count("helper")
                 number_of_diggers = self.inventory.factory_types[unit_id].count("digger")
@@ -396,7 +401,7 @@ class Agent:
                 elif number_of_diggers < 3 and factory.can_build_light(game_state):
                     self.actions[unit_id] = factory.build_light()
                     continue
-                elif game_state.real_env_steps > 800 and factory.can_build_light(
+                elif game_state.real_env_steps > 700 and factory.can_build_light(
                         game_state) and game_state.real_env_steps % 10 == 0:
                     self.actions[unit_id] = factory.build_light()
                     continue
