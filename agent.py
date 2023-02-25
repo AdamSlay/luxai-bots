@@ -59,7 +59,6 @@ class Agent:
                 append_to_new = True
                 for pos in self.new_positions:
                     if new_pos[0] == pos[0] and new_pos[1] == pos[1]:
-                        print(f"unit {unit.unit_id} tried to move to {new_pos} but it's already occupied", file=sys.stderr)
                         append_to_new = False
                         self.prev_actions[uid] = []
                         break
@@ -91,7 +90,6 @@ class Agent:
 
     def heavy_actions(self, unit, title, home_f, game_state, obs):
         adjacent_to_factory = factory_adjacent(home_f.pos, unit)
-        # TODO: something is going ary with heavies running out of power. That needs to be fixed
         if unit.power < 30 and not adjacent_to_factory:
             self.remove_new_position(unit)
             self.prev_actions[unit.unit_id] = []

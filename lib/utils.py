@@ -199,7 +199,7 @@ def get_factory_tiles(factories):
 
 
 def factory_adjacent(factory_tile, unit) -> bool:
-    return np.mean((factory_tile - unit.pos) ** 2) <= 1
+    return np.mean((factory_tile - unit.pos) ** 2) == 1
 
 
 def get_closest_factory(factories, unit):
